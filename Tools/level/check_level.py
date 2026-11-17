@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Valida un nivel de RUNDASHC (formato de Assets/Game/Scripts/Core/LevelData.cs) y las reglas de RunTuning.
 
-Uso: python3 Tools/level/check_level.py [ruta]   (por defecto Resources/Levels/nivel1.txt)
+Uso: python3 Tools/level/check_level.py [ruta]   (sin ruta: todos los Resources/Levels/nivel*.txt)
 
 Supone niveles "por columnas sólidas": cada columna es un pozo o un bloque de '=' desde y=0
 (la superficie es la fila de encima del '=' más alto). Imprime un mapa de alturas y de huecos.
@@ -18,7 +18,7 @@ GROUNDED = set("CPB^F")
 CP_CLEAR = 10       # columnas sin peligro después de un checkpoint
 FINISH_RUNOUT = 15  # suelo plano después de la meta
 HUD_ROW = 11        # la barra superior del HUD tapa esta fila
-DEFAULT = Path(__file__).resolve().parents[2] / "Assets/Game/Resources/Levels/nivel1.txt"
+LEVELS = Path(__file__).resolve().parents[2] / "Assets/Game/Resources/Levels"
 
 
 def parse(text):
@@ -63,8 +63,9 @@ def parse(text):
     return grid, hints
 
 
-def check(text):
-    """Devuelve (errores, informe). Sin errores = nivel válido."""
+def check(text, dj_taught=False):
+    """Devuelve (errores, informe). Sin errores = nivel válido.
+    dj_taught: el doble salto ya se enseñó en un nivel anterior (niveles >= 2)."""
     try:
         grid, hints = parse(text)
     except ValueError as e:
@@ -90,7 +91,7 @@ def check(text):
         floor.append(top + 1)
 
     dj_cols = [c for c, _, txt in hints if "doble salto" in txt]
-    dj_from = min(dj_cols) if dj_cols else W  # desde aquí se permiten huecos/escalones de doble salto
+    dj_from = 0 if dj_taught else min(dj_cols) if dj_cols else W  # desde aquí se permiten huecos/escalones de doble salto
 
     gap_lines, x = [], 0
     while x < W:
@@ -185,17 +186,24 @@ def _selftest():
     bad = ok.replace(ground, "=====" + " " * 5 + "=" * 20)  # hueco de 5 sin doble salto
     assert any("hueco de 5" in e for e in check(bad)[0])
     assert check("map\nend\n")[0]  # filas de menos
+    assert not any("hueco de 5" in e for e in check(bad, dj_taught=True)[0])  # con doble salto enseñado, 5 sí cabe
 
 
-def main():
-    _selftest()
-    path = Path(sys.argv[1]) if len(sys.argv) > 1 else DEFAULT
-    errors, report = check(path.read_text(encoding="utf-8"))
+def check_file(path):
+    """Valida un archivo e imprime el informe. Devuelve True si está OK."""
+    errors, report = check(path.read_text(encoding="utf-8"), dj_taught=path.name != "nivel1.txt")
     print(report)
     for e in errors:
         print("ERROR:", e)
     print(f"{path.name}: {'OK' if not errors else f'{len(errors)} errores'}")
-    sys.exit(1 if errors else 0)
+    return not errors
+
+
+def main():
+    _selftest()
+    paths = [Path(sys.argv[1])] if len(sys.argv) > 1 else sorted(LEVELS.glob("nivel*.txt"))
+    ok = all([check_file(p) for p in paths])  # lista: valida todos aunque uno falle
+    sys.exit(0 if ok else 1)
 
 
 if __name__ == "__main__":
