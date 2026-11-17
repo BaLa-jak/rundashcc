@@ -6,6 +6,7 @@ namespace RunDashC
 {
     /// <summary>
     /// Estado de la partida que sobrevive entre escenas: jugador, nivel, vidas y bits.
+    /// También guarda en PlayerPrefs el progreso máximo (0..100) de cada nivel y decide qué niveles están desbloqueados.
     /// Cualquier cambio dispara <see cref="Changed"/> (el HUD y el RunManager lo escuchan).
     /// </summary>
     public static class GameSession
@@ -13,9 +14,12 @@ namespace RunDashC
         public const int MaxLives = 3;
         public const int MaxNameLength = 12;
         public const string DefaultName = "SYSADMIN";
+        /// <summary>Niveles en Resources/Levels (nivel1..nivelN). El último se desbloquea con los demás al 100%.</summary>
+        public const int LevelCount = 5;
 
         const string PrefName = "rdc.player";
         const string PrefBest = "rdc.best";
+        const string PrefProgress = "rdc.lvl"; // + número de nivel
 
         public static event Action Changed;
 
@@ -73,6 +77,36 @@ namespace RunDashC
             Notify();
         }
 
+        /// <summary>Partida nueva en el nivel elegido en el selector: 3 vidas y bits en 0.</summary>
+        public static void StartLevel(int level)
+        {
+            Level = Mathf.Clamp(level, 1, LevelCount);
+            Lives = MaxLives;
+            Bits = 0;
+            bitsAtLevelStart = 0;
+            IsNewRecord = false;
+            Notify();
+        }
+
+        /// <summary>Progreso máximo guardado del nivel (0..100). 100 = llegó a la meta.</summary>
+        public static int LevelProgress(int level) => PlayerPrefs.GetInt(PrefProgress + level, 0);
+
+        /// <summary>Guarda el avance (0..1) del nivel actual solo si supera lo guardado. Lo escribe a disco SceneFlow.Load.</summary>
+        public static void RecordProgress(float progress)
+        {
+            int p = Mathf.Clamp(Mathf.FloorToInt(progress * 100f), 0, 100);
+            if (p > LevelProgress(Level)) PlayerPrefs.SetInt(PrefProgress + Level, p);
+        }
+
+        /// <summary>Todos libres salvo el último, que pide los anteriores al 100%.</summary>
+        public static bool IsUnlocked(int level)
+        {
+            if (level < LevelCount) return true;
+            for (int i = 1; i < LevelCount; i++)
+                if (LevelProgress(i) < 100) return false;
+            return true;
+        }
+
         /// <summary>Reintentar tras Game Over: mismo nivel, 3 vidas, bits como al empezar el nivel.</summary>
         public static void RetryLevel()
         {
@@ -102,13 +136,6 @@ namespace RunDashC
                 PlayerPrefs.SetInt(PrefBest, Bits);
                 IsNewRecord = true;
             }
-            Notify();
-        }
-
-        public static void NextLevel()
-        {
-            Level++;
-            bitsAtLevelStart = Bits;
             Notify();
         }
 

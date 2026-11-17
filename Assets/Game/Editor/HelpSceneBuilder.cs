@@ -66,11 +66,15 @@ namespace RunDashC.EditorTools
             LegendRow(root, 3, rightX, null, "^^^", AsciiTheme.Red, "púas");
             LegendRow(root, 4, rightX, null, "{1}", AsciiTheme.Cyan, "bit: recógelos");
 
-            var resume = AsciiButton.Create(root, "ResumeButton", "REANUDAR", 48, Center, new Vector2(0, -345)).GetComponent<Button>();
-            resume.navigation = new Navigation { mode = Navigation.Mode.None };
-            UiKit.Label(root, "Hint", "// [ESC] o [P] también reanudan", 28, AsciiTheme.GreenDim, TextAnchor.MiddleCenter, Center, new Vector2(0, -420), new Vector2(900, 40));
+            var resume = AsciiButton.Create(root, "ResumeButton", "REANUDAR", 48, Center, new Vector2(-260, -345)).GetComponent<Button>();
+            var exit = AsciiButton.Create(root, "ExitButton", "SALIR", 48, Center, new Vector2(260, -345)).GetComponent<Button>();
+            resume.navigation = new Navigation { mode = Navigation.Mode.Explicit, selectOnRight = exit };
+            exit.navigation = new Navigation { mode = Navigation.Mode.Explicit, selectOnLeft = resume };
+            UiKit.Label(root, "Hint", "// [ESC] o [P] reanudan   SALIR vuelve a ./niveles", 28, AsciiTheme.GreenDim, TextAnchor.MiddleCenter, Center, new Vector2(0, -420), new Vector2(1200, 40));
 
-            canvas.gameObject.AddComponent<HelpController>().resumeButton = resume;
+            var ctrl = canvas.gameObject.AddComponent<HelpController>();
+            ctrl.resumeButton = resume;
+            ctrl.exitButton = exit;
 
             SceneBuilder.Save(scene, SceneNames.Help);
         }

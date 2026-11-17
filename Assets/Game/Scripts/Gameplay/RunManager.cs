@@ -16,7 +16,8 @@ namespace RunDashC
         const float CountdownStep = 0.6f;
         const float HitstopScale = 0.05f, HitstopSeconds = 0.06f;
         const float DeathSlowMo = 0.3f, DeathDelay = 1.2f;
-        const float CompleteDelay = 3f;
+        const float CompleteDelay = 2.5f; // panel "NIVEL COMPLETADO" → selector de niveles
+        const float DanceZoomSize = 2.4f, DanceZoomSeconds = 0.8f, DanceSeconds = 3.2f, LandTimeout = 1f;
 
         public LevelBuilder level;
         public CamaradaController player;
@@ -76,7 +77,11 @@ namespace RunDashC
                 SceneFlow.Pause();
 
             if (State == RunState.Running)
-                RunEvents.RaiseProgress((player.transform.position.x - level.StartPosition.x) / Mathf.Max(0.01f, level.FinishX - level.StartPosition.x));
+            {
+                float p = (player.transform.position.x - level.StartPosition.x) / Mathf.Max(0.01f, level.FinishX - level.StartPosition.x);
+                RunEvents.RaiseProgress(p);
+                GameSession.RecordProgress(Mathf.Min(p, 0.99f)); // el 100% solo lo da la meta
+            }
         }
 
         /// <summary>Golpe a Camarada. <paramref name="respawn"/> = caída o pared: vuelve al checkpoint.</summary>
@@ -109,17 +114,29 @@ namespace RunDashC
             if (State != RunState.Running) return;
             State = RunState.Completed;
             RunEvents.RaiseProgress(1f);
+            GameSession.RecordProgress(1f);
             AudioManager.Play(Sfx.LevelComplete);
-            RunEvents.RaiseLevelCompleted();
-            if (cameraRig != null) cameraRig.follow = false; // Camarada sale corriendo de la pantalla
-            StartCoroutine(LoadNextLevel());
+            invulnerableUntil = -1f; // sin parpadeo rojo durante el baile
+            StartCoroutine(CelebrateAndExit());
         }
 
-        IEnumerator LoadNextLevel()
+        /// <summary>Camarada frena en la meta: zoom in, baile, zoom out, panel y regreso al selector de niveles.</summary>
+        IEnumerator CelebrateAndExit()
         {
+            for (float t = 0f; t < LandTimeout && !player.Grounded; t += Time.deltaTime) yield return null;
+
+            var fx = player.fx;
+            if (fx != null) fx.StartDance();
+            if (cameraRig != null) cameraRig.ZoomTo(player.transform, DanceZoomSize, DanceZoomSeconds);
+            yield return new WaitForSecondsRealtime(DanceZoomSeconds + DanceSeconds);
+
+            if (cameraRig != null) cameraRig.ZoomOut(DanceZoomSeconds);
+            yield return new WaitForSecondsRealtime(DanceZoomSeconds);
+            if (fx != null) fx.StopDance();
+
+            RunEvents.RaiseLevelCompleted();
             yield return new WaitForSecondsRealtime(CompleteDelay);
-            GameSession.NextLevel();
-            SceneFlow.Load(SceneNames.Game);
+            SceneFlow.Load(SceneNames.LevelSelect);
         }
 
         IEnumerator Hitstop()

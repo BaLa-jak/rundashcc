@@ -3,7 +3,7 @@ using UnityEngine.UI;
 
 namespace RunDashC
 {
-    /// <summary>Game Over: estadísticas de la partida, REANUDAR (mismo nivel) o SALIR al menú.</summary>
+    /// <summary>Game Over: estadísticas de la partida, REANUDAR (mismo nivel) o SALIR al selector de niveles.</summary>
     public class GameOverController : MonoBehaviour
     {
         public Text statsText;
@@ -17,7 +17,7 @@ namespace RunDashC
         void Awake()
         {
             retryButton.onClick.AddListener(Retry);
-            exitButton.onClick.AddListener(() => Leave(SceneNames.Menu));
+            exitButton.onClick.AddListener(() => Leave(SceneNames.LevelSelect));
 
             string num = AsciiTheme.ToHex(AsciiTheme.Cyan), dim = AsciiTheme.ToHex(AsciiTheme.GreenDim);
             string Line(string name, string value) =>

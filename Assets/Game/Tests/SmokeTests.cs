@@ -15,6 +15,7 @@ namespace RunDashC.Tests
     {
         string savedName;
         int savedBest;
+        readonly int[] savedProgress = new int[GameSession.LevelCount + 1];
 
         [OneTimeSetUp]
         public void SavePrefs()
@@ -22,6 +23,7 @@ namespace RunDashC.Tests
             // Los tests usan StartNewRun: no queremos pisar el nombre ni el récord del jugador real.
             savedName = PlayerPrefs.GetString("rdc.player", GameSession.DefaultName);
             savedBest = PlayerPrefs.GetInt("rdc.best", 0);
+            for (int n = 1; n <= GameSession.LevelCount; n++) savedProgress[n] = GameSession.LevelProgress(n);
         }
 
         [OneTimeTearDown]
@@ -29,6 +31,7 @@ namespace RunDashC.Tests
         {
             PlayerPrefs.SetString("rdc.player", savedName);
             PlayerPrefs.SetInt("rdc.best", savedBest);
+            for (int n = 1; n <= GameSession.LevelCount; n++) PlayerPrefs.SetInt("rdc.lvl" + n, savedProgress[n]);
             PlayerPrefs.Save();
         }
 
@@ -63,7 +66,7 @@ namespace RunDashC.Tests
 
         [UnityTest]
         public IEnumerator SceneLoadsWithoutErrors(
-            [Values(SceneNames.Menu, SceneNames.Game, SceneNames.GameOver, SceneNames.Help)] string scene)
+            [Values(SceneNames.Menu, SceneNames.LevelSelect, SceneNames.Game, SceneNames.GameOver, SceneNames.Help)] string scene)
         {
             SceneManager.LoadScene(scene);
             yield return new WaitForSecondsRealtime(1.5f);
@@ -103,6 +106,64 @@ namespace RunDashC.Tests
             yield return new WaitForSecondsRealtime(0.5f);
             Assert.IsFalse(SceneManager.GetSceneByName(SceneNames.Help).isLoaded, "Help no se descargó");
             Assert.AreEqual(1f, Time.timeScale);
+        }
+
+        [UnityTest]
+        public IEnumerator CompletingLevelDancesSavesAndReturnsToLevelSelect()
+        {
+            yield return StartRun();
+            var cam = Camera.main;
+            float size = cam.orthographicSize;
+            PlayerPrefs.SetInt("rdc.lvl1", 0);
+            RunManager.Instance.Complete();
+
+            yield return WaitFor(() => cam.orthographicSize < size * 0.5f, 3f);
+            Assert.Less(cam.orthographicSize, size * 0.5f, "No hizo zoom hacia Camarada");
+            yield return WaitFor(() => cam != null && Mathf.Approximately(cam.orthographicSize, size), 6f);
+            Assert.AreEqual(size, cam.orthographicSize, 0.001f, "El zoom no regresó");
+            Assert.AreEqual(100, GameSession.LevelProgress(1), "La meta no guardó el 100%");
+            yield return WaitFor(() => SceneManager.GetActiveScene().name == SceneNames.LevelSelect, 6f);
+            Assert.AreEqual(SceneNames.LevelSelect, SceneManager.GetActiveScene().name, "No volvió al selector de niveles");
+        }
+
+        [Test]
+        public void AllLevelsExistAndParse()
+        {
+            Assert.AreEqual(GameSession.LevelCount, LevelSelectController.Files.Length);
+            for (int n = 1; n <= GameSession.LevelCount; n++)
+            {
+                Assert.IsNotNull(Resources.Load<TextAsset>($"Levels/nivel{n}"), $"Falta nivel{n}.txt");
+                var level = LevelData.Load(n);
+                Assert.Greater(level.FinishCell.x, level.StartCell.x, $"nivel{n}: la meta no está después del inicio");
+            }
+        }
+
+        [Test]
+        public void LastLevelUnlocksOnlyWhenOthersAt100()
+        {
+            for (int n = 1; n < GameSession.LevelCount; n++) PlayerPrefs.SetInt("rdc.lvl" + n, 100);
+            PlayerPrefs.SetInt("rdc.lvl" + (GameSession.LevelCount - 1), 99);
+            Assert.IsTrue(GameSession.IsUnlocked(1));
+            Assert.IsFalse(GameSession.IsUnlocked(GameSession.LevelCount), "Se desbloqueó con un nivel al 99%");
+
+            GameSession.StartLevel(GameSession.LevelCount - 1);
+            GameSession.RecordProgress(0.5f);
+            Assert.AreEqual(99, GameSession.LevelProgress(GameSession.LevelCount - 1), "RecordProgress bajó el progreso");
+            GameSession.RecordProgress(1f);
+            Assert.IsTrue(GameSession.IsUnlocked(GameSession.LevelCount));
+        }
+
+        [UnityTest]
+        public IEnumerator PauseExitGoesToLevelSelect()
+        {
+            yield return StartRun();
+            SceneFlow.Pause();
+            yield return WaitFor(() => UnityEngine.Object.FindFirstObjectByType<HelpController>() != null, 2f);
+            UnityEngine.Object.FindFirstObjectByType<HelpController>().exitButton.onClick.Invoke();
+            yield return WaitFor(() => SceneManager.GetActiveScene().name == SceneNames.LevelSelect, 4f);
+            Assert.AreEqual(SceneNames.LevelSelect, SceneManager.GetActiveScene().name);
+            Assert.AreEqual(1f, Time.timeScale);
+            Assert.IsFalse(SceneFlow.IsPaused);
         }
 
         /// <summary>Nueva partida en Game y espera a que termine la cuenta regresiva.</summary>

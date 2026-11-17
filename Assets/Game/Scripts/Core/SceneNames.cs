@@ -4,6 +4,7 @@ namespace RunDashC
     public static class SceneNames
     {
         public const string Menu = "Menu";
+        public const string LevelSelect = "Niveles";
         public const string Game = "Game";
         public const string GameOver = "GameOver";
         public const string Help = "Help";

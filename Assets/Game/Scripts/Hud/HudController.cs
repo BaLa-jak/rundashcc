@@ -232,13 +232,13 @@ namespace RunDashC
                 $"NIVEL {levelAtStart:00} COMPLETADO",
                 "// compilado sin errores (0 warnings)",
                 $"bits: {GameSession.Bits:000}",
-                $"> cargando nivel {levelAtStart + 1:00}...",
+                "> return 0; // volviendo a ./niveles",
             };
             Color[] colors = { AsciiTheme.Green, AsciiTheme.GreenDim, AsciiTheme.White, AsciiTheme.Cyan };
             int total = 0;
             foreach (var l in lines) total += l.Length;
 
-            // ~2 s de tipeo: el RunManager recarga la escena ~3 s después de LevelCompleted.
+            // ~2 s de tipeo: el RunManager recarga la escena ~2.5 s después de LevelCompleted (tras el baile).
             for (int n = 0; n <= total; n++)
             {
                 completeText.text = Framed(lines, colors, n, true);

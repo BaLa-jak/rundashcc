@@ -33,6 +33,7 @@ namespace RunDashC
         public static void Load(string scene)
         {
             if (loading) return; // evita doble clic
+            PlayerPrefs.Save(); // progreso de niveles y récord: a disco en cada cambio de escena
             IsPaused = false;
             Time.timeScale = 1f;
             AudioManager.SetMusicDucked(false);

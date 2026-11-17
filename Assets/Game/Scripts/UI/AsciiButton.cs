@@ -92,7 +92,8 @@ namespace RunDashC
 
             var l = now < glitchUntil ? Glitch(label) : label;
             text.text = Highlighted ? $"> [ {l} ] <" : $"[ {l} ]";
-            text.color = inverted ? AsciiTheme.Bg : AsciiTheme.Green;
+            var b = button != null ? button : GetComponent<Button>(); // en el editor Awake no corre
+            text.color = inverted ? AsciiTheme.Bg : b.interactable ? AsciiTheme.Green : AsciiTheme.GreenDim;
             if (background != null)
                 background.color = flash ? AsciiTheme.Cyan : Highlighted ? AsciiTheme.Green : Color.clear;
 

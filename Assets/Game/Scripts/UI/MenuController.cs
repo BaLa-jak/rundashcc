@@ -4,7 +4,7 @@ using UnityEngine.UI;
 
 namespace RunDashC
 {
-    /// <summary>Menú principal: nombre del jugador, INICIAR / SALIR, récord y música.</summary>
+    /// <summary>Menú principal: nombre del jugador, INICIAR (→ selector de niveles) / SALIR, récord y música.</summary>
     public class MenuController : MonoBehaviour
     {
         public InputField nameInput;
@@ -64,7 +64,7 @@ namespace RunDashC
             started = true;
             AudioManager.Play(Sfx.Start);
             GameSession.StartNewRun(nameInput.text);
-            SceneFlow.Load(SceneNames.Game);
+            SceneFlow.Load(SceneNames.LevelSelect);
         }
     }
 }
