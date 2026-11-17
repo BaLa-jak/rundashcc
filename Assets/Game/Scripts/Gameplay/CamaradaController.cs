@@ -124,7 +124,7 @@ namespace RunDashC
             freshPress = false;
             bufferTimer -= dt;
 
-            commandedRun = (state == RunState.Running || state == RunState.Completed) && Time.time >= holdUntil;
+            commandedRun = state == RunState.Running && Time.time >= holdUntil; // en la meta frena para bailar
             v.x = commandedRun ? RunSpeed : 0f;
             Body.linearVelocity = v;
             prevVy = v.y;

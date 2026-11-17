@@ -6,7 +6,8 @@ namespace RunDashC
     /// <summary>
     /// Animación procedural de Camarada sobre el hijo visual (no toca el Rigidbody): bob al correr,
     /// squash/stretch con resorte, inclinación según vy, giro de 360° con estela ASCII en el doble salto,
-    /// polvo en los pies, parpadeo rojo con jitter en invulnerabilidad y explosión de caracteres al morir.
+    /// polvo en los pies, parpadeo rojo con jitter en invulnerabilidad, explosión de caracteres al morir
+    /// y baile de victoria en la meta (de pie sobre las patas traseras, meciéndose al ritmo).
     /// </summary>
     [RequireComponent(typeof(SpriteRenderer))]
     public class CamaradaFx : MonoBehaviour
@@ -17,13 +18,19 @@ namespace RunDashC
         const string DustChars = ".,'`";
         const string TrailChars = "@%&#";
         const string DeathChars = "01{};#/*";
+        // Baile: balanceo lado a lado a 1 Hz = 2 beats/s (≈120 BPM), de pie sobre las patas traseras.
+        const float DanceUpright = 70f, DanceSway = 14f, DanceHop = 0.12f, DanceRamp = 0.25f;
+        const float DanceRear = Width * 0.3f; // de la pata trasera al centro del sprite
+        const string PawChars = "*+~o";
 
         SpriteRenderer sprite;
         CamaradaController body;
         Light2D glow;
         float baseScale = 1f, halfHeight = 0.37f;
         float squash, squashVel, bobPhase, spinLeft, dustTimer, trailTimer;
-        bool exploded;
+        float danceWeight, danceTime;
+        int danceBeat;
+        bool exploded, dancing;
 
         void Awake()
         {
@@ -89,6 +96,27 @@ namespace RunDashC
                 }
             }
 
+            // Baile: mezcla con rampa suave para que no "salte" a parado ni al volver a 4 patas.
+            danceWeight = Mathf.MoveTowards(danceWeight, dancing ? 1f : 0f, dt / DanceRamp);
+            float danceW = Mathf.SmoothStep(0f, 1f, danceWeight), dir = 1f;
+            if (danceWeight > 0f)
+            {
+                danceTime += dt;
+                dir = Mathf.Repeat(danceTime, 2f) < 1f ? 1f : -1f; // voltea cada 2 beats, en lo alto del brinco
+                float phase = danceTime * Mathf.PI * 2f;
+                tilt = Mathf.Lerp(tilt, DanceUpright * dir + DanceSway * Mathf.Sin(phase), danceW);
+                bob = Mathf.Lerp(bob, DanceHop * Mathf.Abs(Mathf.Cos(phase)), danceW);
+                int beat = Mathf.FloorToInt((danceTime + 0.25f) * 2f); // pisada en cada extremo del balanceo
+                if (beat != danceBeat && dancing)
+                {
+                    danceBeat = beat;
+                    squash = 0.18f;
+                    squashVel = 0f;
+                    Paws(dir, beat % 2 == 0 ? 1f : -1f);
+                }
+            }
+            sprite.flipX = danceWeight > 0f && dir < 0f;
+
             var jitter = Vector3.zero;
             bool invulnerable = run != null && run.IsInvulnerable && state != RunState.Dying;
             if (invulnerable)
@@ -104,8 +132,13 @@ namespace RunDashC
             }
 
             // Pies fijos en el borde del collider aunque haya squash; rota sobre el centro.
-            transform.localPosition = new Vector3(0f, -CamaradaController.HalfHeight - FeetSink + halfHeight * sy + bob, 0f) + jitter;
-            transform.localRotation = Quaternion.Euler(0f, 0f, tilt);
+            float feet = -CamaradaController.HalfHeight - FeetSink + bob;
+            var rot = Quaternion.Euler(0f, 0f, tilt);
+            var pos = new Vector3(0f, feet + halfHeight * sy, 0f);
+            // Bailando rota sobre la pata trasera (puesta en el centro del cuerpo) para pararse en 2 patas.
+            if (danceWeight > 0f) pos = new Vector3(0f, feet, 0f) + rot * new Vector3(DanceRear * dir * danceW, halfHeight * sy, 0f);
+            transform.localPosition = pos + jitter;
+            transform.localRotation = rot;
             transform.localScale = new Vector3(baseScale * sx, baseScale * sy, 1f);
         }
 
@@ -114,6 +147,26 @@ namespace RunDashC
         void Dust(Vector2 velocity) =>
             AsciiParticles.Emit(Feet, DustChars[Random.Range(0, DustChars.Length)].ToString(),
                 AsciiTheme.WithAlpha(AsciiTheme.White, 0.6f), velocity, 0.35f, 0.4f, 3f);
+
+        /// <summary>Baile de victoria (lo controla RunManager al llegar a la meta).</summary>
+        public void StartDance()
+        {
+            dancing = true;
+            danceTime = 0f;
+            danceBeat = 0;
+        }
+
+        public void StopDance() => dancing = false;
+
+        /// <summary>"Patitas" al ritmo: chispas ASCII desde el pecho, alternando de lado.</summary>
+        void Paws(float dir, float side)
+        {
+            var chest = transform.position + transform.rotation * new Vector3(0.35f * dir, 0f, 0f);
+            for (int i = 0; i < 2; i++)
+                AsciiParticles.Emit(chest, PawChars[Random.Range(0, PawChars.Length)].ToString(),
+                    i == 0 ? AsciiTheme.Cyan : AsciiTheme.Green,
+                    new Vector2(side * Random.Range(1f, 2.2f), Random.Range(1f, 2.2f)), 0.5f, 0.4f, 2f);
+        }
 
         public void OnJump()
         {
