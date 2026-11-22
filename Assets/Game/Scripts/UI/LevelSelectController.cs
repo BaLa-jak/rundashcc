@@ -17,6 +17,8 @@ namespace RunDashC
         public Text[] rowTexts;
         public Text playerLabel;
         public Button backButton;
+        public Button shopButton;
+        public Text walletLabel;
 
         GameObject firstChoice;
         bool leaving;
@@ -43,6 +45,8 @@ namespace RunDashC
             }
             if (firstChoice == null) firstChoice = levelButtons[0].gameObject;
             backButton.onClick.AddListener(() => Leave(SceneNames.Menu));
+            shopButton.onClick.AddListener(() => Leave(SceneNames.Shop));
+            walletLabel.text = $"// cartera: {Cosmetics.Wallet} bits";
         }
 
         void Start()

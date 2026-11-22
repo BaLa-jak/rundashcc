@@ -8,5 +8,6 @@ namespace RunDashC
         public const string Game = "Game";
         public const string GameOver = "GameOver";
         public const string Help = "Help";
+        public const string Shop = "Tienda";
     }
 }

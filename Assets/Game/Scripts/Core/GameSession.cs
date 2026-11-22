@@ -131,6 +131,7 @@ namespace RunDashC
         {
             if (amount <= 0) return;
             Bits += amount;
+            Cosmetics.AddToWallet(amount);
             if (Bits > BestBits)
             {
                 PlayerPrefs.SetInt(PrefBest, Bits);

@@ -26,6 +26,7 @@ namespace RunDashC
         SpriteRenderer sprite;
         CamaradaController body;
         Light2D glow;
+        readonly System.Collections.Generic.List<SpriteRenderer> outfit = new System.Collections.Generic.List<SpriteRenderer>();
         float baseScale = 1f, halfHeight = 0.37f;
         float squash, squashVel, bobPhase, spinLeft, dustTimer, trailTimer;
         float danceWeight, danceTime;
@@ -43,7 +44,28 @@ namespace RunDashC
                 halfHeight = sprite.sprite.bounds.size.y * baseScale / 2f;
             }
             sprite.sortingOrder = 20;
+            DressUp();
             if (transform.parent != null) glow = WorldKit.AddLight(transform.parent, AsciiTheme.White, 0.35f, 2.5f);
+        }
+
+        /// <summary>
+        /// Cosméticos equipados en la tienda: capas wear_* centradas sobre la rata (hijas del visual, así heredan
+        /// squash, giro y baile; con flipX se reflejan sobre el mismo centro).
+        /// </summary>
+        void DressUp()
+        {
+            foreach (var slot in Cosmetics.Slots)
+            {
+                if (!(Cosmetics.Equipped(slot) is Cosmetic c)) continue;
+                var art = WorldKit.LoadSprite(c.Wear);
+                if (art == null) continue;
+                var go = new GameObject(c.Wear);
+                go.transform.SetParent(transform, false);
+                var sr = go.AddComponent<SpriteRenderer>();
+                sr.sprite = art;
+                sr.sortingOrder = 21 + (int)slot;
+                outfit.Add(sr);
+            }
         }
 
         void Update()
@@ -131,6 +153,13 @@ namespace RunDashC
                 sprite.color = Color.white;
             }
 
+            foreach (var sr in outfit)
+            {
+                sr.enabled = sprite.enabled;
+                sr.color = sprite.color;
+                sr.flipX = sprite.flipX;
+            }
+
             // Pies fijos en el borde del collider aunque haya squash; rota sobre el centro.
             float feet = -CamaradaController.HalfHeight - FeetSink + bob;
             var rot = Quaternion.Euler(0f, 0f, tilt);
@@ -204,6 +233,7 @@ namespace RunDashC
         {
             exploded = true;
             sprite.enabled = false;
+            foreach (var sr in outfit) sr.enabled = false;
             if (glow != null) glow.enabled = false;
             var p = transform.position;
             AsciiParticles.Burst(p, DeathChars, AsciiTheme.White, 26, 9f, 1.3f, 0.5f, 10f, true);

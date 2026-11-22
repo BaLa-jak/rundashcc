@@ -146,6 +146,251 @@ def sierra():
     return out
 
 
+# Hoja de cosméticos (2048x2048, bloques de ~20 px): bandas de fila medidas una vez y 5 columnas fijas.
+COS_STEP = 8        # muestreo cada 8 px (~2.5 muestras por bloque) -> iconos de ~45 px, x2 con NEAREST
+COS_ROWS = {        # fila: (y0, y1, ids de izquierda a derecha) — mismo orden que Cosmetics.cs
+    "tenis": (348, 580, ["rojos", "turbo", "camuflaje", "morados", "alados"]),
+    "camisetas": (670, 945, ["estrella", "marinera", "calavera", "jersey7", "glitch"]),
+    "sombreros": (1000, 1295, ["gorra", "copa", "pirata", "mago", "fiesta"]),
+    "guantes": (1395, 1585, ["box_rojo", "box_oro", "sin_dedos", "blancos", "cyber"]),
+}
+COS_COLS = [0, 445, 830, 1215, 1600, 2048]
+
+
+def icon(img, box):
+    """Recorta box, muestrea la rejilla (mediana 3x3), quita el fondo con flood-fill desde los bordes y recorta."""
+    cell = img.crop(box)
+    px = cell.load()
+    w, h = cell.width // COS_STEP, cell.height // COS_STEP
+    small = Image.new("RGB", (w, h))
+    o = small.load()
+    for cy in range(h):
+        for cx in range(w):
+            x0, y0 = cx * COS_STEP + COS_STEP // 2 - 1, cy * COS_STEP + COS_STEP // 2 - 1
+            vals = [px[x, y] for y in range(y0, y0 + 3) for x in range(x0, x0 + 3)]
+            o[cx, cy] = tuple(sorted(v[c] for v in vals)[4] for c in range(3))
+    bg = (12, 12, 10)
+    clear = set()
+    stack = [(x, y) for x in range(w) for y in (0, h - 1)] + [(x, y) for y in range(h) for x in (0, w - 1)]
+    while stack:
+        p = stack.pop()
+        if p in clear or not (0 <= p[0] < w and 0 <= p[1] < h) or math.dist(o[p], bg) >= 18:
+            continue
+        clear.add(p)
+        x, y = p
+        stack += [(x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)]
+    rgba = small.convert("RGBA")
+    for p in clear:
+        rgba.putpixel(p, (0, 0, 0, 0))
+    rgba = rgba.crop(rgba.getbbox())
+    return pad(rgba.resize((rgba.width * 2, rgba.height * 2), Image.NEAREST), MARGIN)
+
+
+def cosmeticos():
+    img = Image.open(SRC / "cosmeticos.jpeg").convert("RGB")
+    out = {}
+    for row, (y0, y1, ids) in COS_ROWS.items():
+        for i, cid in enumerate(ids):
+            # la etiqueta "SOMBREROS" baja hasta y≈1030 sobre las 2 primeras columnas; el gorro de fiesta sube más
+            top = 1035 if row == "sombreros" and i < 2 else y0
+            out["cos_" + cid] = icon(img, (COS_COLS[i], top, COS_COLS[i + 1], y1))
+    out["tienda_icono"] = icon(img, (815, 1640, 1240, 2040))
+    return out
+
+
+# ---------------------------------------------------------------- Cosméticos puestos (wear_<id>.png)
+# Capas del mismo tamaño de bloque que camarada.png y alineadas con ella: lienzo = camarada.png + WEAR_PAD bloques
+# por lado (centro común), así en Unity van como hijo en (0,0) con escala 1. Coordenadas en bloques nativos de la
+# rata (66x33, y hacia abajo), medidas sobre camarada.png.
+WEAR_PAD = 12
+HAT = dict(cx=55, bottom=8)  # centro y fila de abajo (se encaja 1-2 filas en la cabeza)
+GLOVE = dict(paws=[(46, 25, 0.75), (54, 23, 1.0)])   # (cx, cy, brillo): primero la pata de atrás
+SHOE = dict(feet=[(42, 34, 0.8), (23, 34, 1.0)])     # (cx, base, brillo)
+
+
+# Tenis y guantes a 8-11 bloques no aguantan el detalle del icono (agujetas, costuras): plantillas de pixel art
+# de perfil (miran a la derecha, como Camarada) coloreadas con la paleta de cada icono.
+# O contorno, M color, L brillo, D sombra, A acento (agujetas/pulgar), S suela/puño, K nudillos, W/w alas.
+SHOE_TPL = [
+    "....OOOO.....",
+    "...OLMMMO....",
+    "...OAMAMMOO..",
+    "..OMAMAMMMMO.",
+    ".OMMMMMMMMMMO",
+    "OSSSSSSSSSSSO",
+    ".OOOOOOOOOOO.",
+]
+WING_TPL = ["w....", "Ww...", ".WWW.", "..WW."]  # sobre el talón de los tenis alados
+GLOVE_TPL = [
+    "..OOOOO..",
+    ".OLLMMKO.",
+    "OLMMMMMKO",
+    "OLMMMMMKO",
+    "OMMMAMMKO",
+    "OMMMMMMMO",
+    ".ODDDDDO.",
+    ".OSSSSSO.",
+    ".OOOOOOO.",
+]
+HAT_TPL = {  # de perfil; la punta del mago cae hacia atrás
+    "gorra": [
+        "....OOOOOO.......",
+        "..OOLLMMMMOO.....",
+        ".OLMMMMMMMMMO....",
+        ".OMMMMMMAMMMMO...",
+        "OMMMMMMMMMMMMMOOO",
+        "ODDDDDDDDDDDDDDDO",
+        ".OOOOOOOOOOOOOOO.",
+    ],
+    "copa": [
+        "..OOOOOOOOOO..",
+        "..OLMMMMMMMO..",
+        "..OLMMMMMMMO..",
+        "..OLMMMMMMMO..",
+        "..OLMMMMMMMO..",
+        "..OLMMMMMMMO..",
+        "..OAAAAAAAAO..",
+        "..OAAAAAAAAO..",
+        "OOOOOOOOOOOOOO",
+        "ODDDDDDDDDDDDO",
+        ".OOOOOOOOOOOO.",
+    ],
+    "pirata": [
+        "OO.....OOOO.....OO",
+        "OTO..OOMMMMOO..OTO",
+        "OTMOOMMMWWWMMOOMTO",
+        ".OTMMMMMWOWMMMMTO.",
+        ".OTMMMMMMWMMMMMTO.",
+        "..OTTTMMMMMMTTTO..",
+        "...OOOTTTTTTOOO...",
+        "......OOOOOO......",
+    ],
+    "mago": [
+        "..OOO.........",
+        ".OMMMO........",
+        "..OOMMO.......",
+        "....OMMO......",
+        "....OMAMO.....",
+        "...OMMMMO.....",
+        "...OMMMAMO....",
+        "..OMAMMMMO....",
+        "..OMMMMMAMO...",
+        ".OMMMAMMMMO...",
+        "OOOOOOOOOOOOOO",
+        "OMMMMAMMMMMAMO",
+        ".OOOOOOOOOOOO.",
+    ],
+    "fiesta": [
+        ".....PPP.....",
+        ".....PPP.....",
+        "......O......",
+        ".....ORO.....",
+        ".....ORO.....",
+        "....OYYYO....",
+        "....OGGGO....",
+        "...OBBBBBO...",
+        "...ORRRRRO...",
+        "..OYYYYYYYO..",
+        "..OGGGGGGGO..",
+        ".OBBBBBBBBBO.",
+        ".ORRRRRRRRRO.",
+        "OYYYYYYYYYYYO",
+        "OOOOOOOOOOOOO",
+    ],
+}
+OUTLINE = (26, 15, 36)
+WEAR_PAL = {  # colores tomados de cada icono
+    "gorra": dict(M=(210, 40, 45), L=(240, 110, 110), D=(150, 20, 35), A=(235, 235, 235)),
+    "copa": dict(M=(55, 55, 65), L=(95, 95, 110), D=(40, 40, 48), A=(210, 35, 45)),
+    "pirata": dict(M=(110, 65, 35), T=(230, 180, 60), W=(240, 240, 240)),
+    "mago": dict(M=(40, 55, 130), A=(240, 200, 40)),
+    "fiesta": dict(M=(235, 60, 120), P=(240, 90, 150), R=(235, 60, 120), G=(90, 200, 80), B=(60, 150, 235), Y=(245, 200, 50)),
+    "rojos": dict(M=(200, 35, 40), L=(240, 100, 100), A=(235, 235, 235), S=(235, 235, 235)),
+    "turbo": dict(M=(20, 170, 230), L=(110, 220, 255), A=(240, 200, 40), S=(240, 200, 40)),
+    "camuflaje": dict(M=(60, 160, 70), L=(110, 190, 80), A=(35, 95, 60), S=(75, 75, 75)),
+    "morados": dict(M=(110, 45, 145), L=(150, 85, 180), A=(235, 235, 235), S=(225, 225, 240)),
+    "alados": dict(M=(230, 180, 50), L=(250, 230, 140), A=(150, 80, 10), S=(240, 240, 240), W=(250, 240, 190), w=(255, 255, 255)),
+    "box_rojo": dict(M=(200, 40, 45), D=(130, 15, 35), L=(240, 110, 110), A=(130, 15, 35), S=(235, 235, 235)),
+    "box_oro": dict(M=(235, 185, 40), D=(215, 125, 15), L=(255, 230, 130), A=(200, 120, 20), S=(170, 80, 35)),
+    "sin_dedos": dict(M=(45, 45, 70), D=(30, 30, 40), L=(80, 80, 110), A=(230, 165, 165), S=(35, 35, 45), K=(230, 165, 165)),
+    "blancos": dict(M=(235, 235, 235), D=(165, 165, 180), L=(255, 255, 255), A=(40, 30, 50), S=(200, 200, 210)),
+    "cyber": dict(M=(10, 45, 90), D=(5, 30, 60), L=(40, 230, 230), A=(70, 230, 100), S=(70, 230, 100), K=(40, 230, 230)),
+}
+
+
+def paint(rows, pal, k=1.0):
+    """Plantilla -> RGBA. Letras sin color en la paleta caen en M (K, D) y el contorno es fijo."""
+    assert len({len(r) for r in rows}) == 1, "plantilla con filas de distinto ancho"
+    out = Image.new("RGBA", (len(rows[0]), len(rows)), (0, 0, 0, 0))
+    for y, row in enumerate(rows):
+        for x, ch in enumerate(row):
+            if ch != ".":
+                c = OUTLINE if ch == "O" else pal.get(ch, pal["M"])
+                out.putpixel((x, y), tuple(round(v * k) for v in c) + (255,))
+    return out
+
+
+def native_of(img):
+    """Deshace pad + x2 de pixel_sprite: un pixel por bloque."""
+    m = MARGIN
+    img = img.crop((m, m, img.width - m, img.height - m))
+    return img.resize((img.width // PIXEL_SCALE, img.height // PIXEL_SCALE), Image.NEAREST)
+
+
+def shirt_layer(rat, icon):
+    """Pinta el patrón de la camiseta sobre el pelaje del torso, con el sombreado de la rata."""
+    rpx = rat.load()
+    fur = lambda c: c[3] and sum(c[:3]) / 3 > 140 and c[0] - c[1] < 40
+    mask = {(x, y) for y in range(rat.height) for x in range(rat.width)
+            if fur(rpx[x, y]) and x >= 29 and y <= 21 and x <= 46 + (y - 6) * 0.4}
+    xs, ys = [p[0] for p in mask], [p[1] for p in mask]
+    x0, x1, y0, y1 = min(xs), max(xs), min(ys), max(ys)
+    body = icon.crop(icon.getbbox())
+    bw, bh = body.size
+    body = body.crop((round(bw * 0.22), round(bh * 0.14), round(bw * 0.78), round(bh * 0.94)))  # sin mangas ni cuello
+    tex = body.resize((x1 - x0 + 1, y1 - y0 + 1), Image.NEAREST).load()
+    out = Image.new("RGBA", rat.size, (0, 0, 0, 0))
+    o = out.load()
+    for x, y in mask:
+        r, g, b, a = tex[x - x0, y - y0]
+        if not a:
+            r, g, b = tex[(x1 - x0) // 2, (y1 - y0) // 2][:3]
+        k = (sum(rpx[x, y][:3]) / 3 / 255) ** 1.5
+        if any((x + dx, y + dy) not in mask and fur(rpx[x + dx, y + dy]) for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1))
+               if 0 <= x + dx < rat.width and 0 <= y + dy < rat.height):
+            k *= 0.7  # costura donde termina la tela
+        o[x, y] = (round(r * k), round(g * k), round(b * k), 255)
+    return out
+
+
+def wear_layers(rat_png, icons):
+    rat = native_of(rat_png)
+    off = MARGIN // PIXEL_SCALE + WEAR_PAD
+    size = (rat.width + 2 * off, rat.height + 2 * off)
+    out = {}
+    for name, icon in icons.items():
+        cid = name[4:]
+        layer = Image.new("RGBA", size, (0, 0, 0, 0))
+        if cid in COS_ROWS["camisetas"][2]:
+            layer.alpha_composite(shirt_layer(rat, icon), (off, off))
+        elif cid in COS_ROWS["sombreros"][2]:
+            hat = paint(HAT_TPL[cid], WEAR_PAL[cid])
+            layer.alpha_composite(hat, (off + HAT["cx"] - hat.width // 2, off + HAT["bottom"] - hat.height))
+        elif cid in COS_ROWS["guantes"][2]:
+            for cx, cy, k in GLOVE["paws"]:
+                glove = paint(GLOVE_TPL, WEAR_PAL[cid], k)
+                layer.alpha_composite(glove, (off + cx - glove.width // 2, off + cy - glove.height // 2))
+        else:
+            for cx, base, k in SHOE["feet"]:
+                shoe = paint(SHOE_TPL, WEAR_PAL[cid], k)
+                x, y = off + cx - shoe.width // 2, off + base - shoe.height
+                layer.alpha_composite(shoe, (x, y))
+                if "W" in WEAR_PAL[cid]:
+                    layer.alpha_composite(paint(WING_TPL, WEAR_PAL[cid], k), (x - 1, y - 1))
+        out["wear_" + cid] = layer.resize((size[0] * PIXEL_SCALE, size[1] * PIXEL_SCALE), Image.NEAREST)
+    return out
+
+
 def main():
     OUT.mkdir(parents=True, exist_ok=True)
     sprites = {
@@ -154,7 +399,10 @@ def main():
         "obstaculo": obstaculo(),
         "sierra": sierra(),
         "fondo": Image.open(SRC / "fondo.jpeg").convert("RGB"),
+        "duende": Image.open(SRC / "duende.jpeg").convert("RGB").resize((1200, 896), Image.LANCZOS),
+        **cosmeticos(),
     }
+    sprites.update(wear_layers(sprites["camarada"], {n: i for n, i in sprites.items() if n.startswith("cos_")}))
     for name, img in sprites.items():
         img.save(OUT / f"{name}.png", optimize=True)
         print(f"{name}.png {img.width}x{img.height} px = {img.width / 100:.2f}x{img.height / 100:.2f} u @PPU100")
@@ -166,6 +414,16 @@ def main():
         a = img.getchannel("A")
         assert a.getpixel((0, 0)) == 0 and a.getpixel((img.width - 1, img.height - 1)) == 0, f"{name}: esquinas opacas"
         assert 64 <= max(img.size) <= 176, f"{name}: tamaño {img.size}"
+    for name, img in sprites.items():
+        if name.startswith("cos_") or name == "tienda_icono":
+            a = img.getchannel("A")
+            assert a.getpixel((0, 0)) == 0 and a.getpixel((img.width - 1, img.height - 1)) == 0, f"{name}: esquinas opacas"
+            assert 40 <= max(img.size) <= 130, f"{name}: tamaño {img.size}"
+    assert sum(n.startswith("cos_") for n in sprites) == 20
+    wear = [i for n, i in sprites.items() if n.startswith("wear_")]
+    pad = 2 * PIXEL_SCALE * WEAR_PAD
+    assert len(wear) == 20 and all(i.size == (sprites["camarada"].width + pad, sprites["camarada"].height + pad) for i in wear)
+    assert all(i.getbbox() for i in wear), "capa vacía"
     assert sprites["sierra"].size == (160, 160)
     assert sprites["fondo"].mode == "RGB" and sprites["fondo"].size == (1024, 572)
 

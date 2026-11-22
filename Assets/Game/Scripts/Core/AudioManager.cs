@@ -10,7 +10,7 @@ namespace RunDashC
         Checkpoint, Pause, Countdown, Go, LevelComplete, GameOver
     }
 
-    public enum Music { None, Menu, Level1 }
+    public enum Music { None, Menu, Level1, Shop }
 
     /// <summary>
     /// Audio persistente (lo crea GameBootstrap). Clips en Resources/Audio:

@@ -10,7 +10,7 @@ using UnityEngine.SceneManagement;
 namespace RunDashC.EditorTools
 {
     /// <summary>
-    /// Genera las 4 escenas del juego. Menú: RunDashC > Construir escenas.
+    /// Genera las escenas del juego. Menú: RunDashC > Construir escenas.
     /// Batchmode: -executeMethod RunDashC.EditorTools.SceneBuilder.BuildAll
     /// OJO: sobrescribe las escenas; los cambios hechos a mano en ellas se pierden.
     /// </summary>
@@ -19,7 +19,7 @@ namespace RunDashC.EditorTools
         public const string SceneDir = "Assets/Game/Scenes";
         public const string VolumePath = "Assets/Game/Settings/RunDashVolume.asset";
 
-        static readonly string[] Order = { SceneNames.Menu, SceneNames.LevelSelect, SceneNames.Game, SceneNames.GameOver, SceneNames.Help };
+        static readonly string[] Order = { SceneNames.Menu, SceneNames.LevelSelect, SceneNames.Game, SceneNames.GameOver, SceneNames.Help, SceneNames.Shop };
 
         [MenuItem("RunDashC/Construir escenas")]
         public static void BuildAll()
@@ -31,6 +31,7 @@ namespace RunDashC.EditorTools
             Run(SceneNames.Game, GameSceneBuilder.Build);
             Run(SceneNames.GameOver, GameOverSceneBuilder.Build);
             Run(SceneNames.Help, HelpSceneBuilder.Build);
+            Run(SceneNames.Shop, ShopSceneBuilder.Build);
 
             EditorBuildSettings.scenes = Order
                 .Select(n => new EditorBuildSettingsScene(ScenePath(n), true))

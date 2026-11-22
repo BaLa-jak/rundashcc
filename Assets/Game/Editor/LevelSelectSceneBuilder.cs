@@ -61,8 +61,14 @@ namespace RunDashC.EditorTools
                     new Vector2(textLeft + 560f, y), new Vector2(1120f, rowFs * 1.3f));
             }
 
-            var back = AsciiButton.Create(root, "BackButton", "VOLVER", 44, Center, new Vector2(0, -350)).GetComponent<Button>();
-            back.navigation = new Navigation { mode = Navigation.Mode.Vertical };
+            // Tienda (con el icono SHOP pegado al botón para que haga el punch con él) y Volver.
+            var shop = AsciiButton.Create(root, "ShopButton", "TIENDA", 44, Center, new Vector2(-220, -350)).GetComponent<Button>();
+            var shopIcon = UiKit.SpriteImage(shop.transform, "Icono", SceneBuilder.LoadResource<Sprite>("Art/tienda_icono"), Center, new Vector2(-190, 0), new Vector2(84, 74));
+            if (shopIcon != null) shopIcon.raycastTarget = false;
+            var back = AsciiButton.Create(root, "BackButton", "VOLVER", 44, Center, new Vector2(220, -350)).GetComponent<Button>();
+            shop.navigation = new Navigation { mode = Navigation.Mode.Automatic };
+            back.navigation = new Navigation { mode = Navigation.Mode.Automatic };
+            var walletLabel = UiKit.Label(root, "Wallet", "// cartera: 0 bits", 32, AsciiTheme.Yellow, TextAnchor.MiddleRight, Center, new Vector2(330, 135), new Vector2(900, 44));
             UiKit.Label(root, "Hint", "// [ESPACIO] saltar   [ESC] pausa   // el % es lo más lejos que llegaste", 28, AsciiTheme.GreenDim, TextAnchor.MiddleCenter, Center, new Vector2(0, -430), new Vector2(1500, 40));
 
             AsciiUi.AddCrtOverlay(canvas);
@@ -72,6 +78,8 @@ namespace RunDashC.EditorTools
             ctrl.rowTexts = rows;
             ctrl.playerLabel = player;
             ctrl.backButton = back;
+            ctrl.shopButton = shop;
+            ctrl.walletLabel = walletLabel;
 
             SceneBuilder.Save(scene, SceneNames.LevelSelect);
         }

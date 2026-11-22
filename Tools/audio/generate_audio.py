@@ -209,7 +209,8 @@ SFX = {  # nombre: (duración s, función, pico dBFS)
 CHORD = {  # bajo, notas del acorde
     "Am": ("A2", ("A3", "C4", "E4")), "F": ("F2", ("F3", "A3", "C4")), "C": ("C3", ("C4", "E4", "G4")),
     "G": ("G2", ("G3", "B3", "D4")), "Dm": ("D3", ("D4", "F4", "A4")), "E": ("E2", ("E3", "G#3", "B3")),
-    "Em": ("E2", ("E3", "G3", "B3")),
+    "Em": ("E2", ("E3", "G3", "B3")), "Gm": ("G2", ("G3", "A#3", "D4")), "A": ("A2", ("A3", "C#4", "E4")),
+    "Bb": ("A#2", ("A#3", "D4", "F4")),
 }
 
 
@@ -305,6 +306,40 @@ def music_level1():
     return b, lead
 
 
+def music_shop():
+    """Mercado negro del duende: Re menor, 96 BPM, 8 compases, bajo caminante con swing y lead sigiloso."""
+    b, st = loop_buffer(96, 8)
+    prog = ["Dm", "Gm", "A", "Dm", "Bb", "Gm", "A", "A"]
+    walk = [0, 2, 1, 3]  # índices en [raíz, 3a, 5a, 8a]: el bajo "camina"
+    lead = [
+        "D5 - . F5 - . A5 - G#5 - A5 - . . . .",
+        "A#5 - . A5 - . G5 - F5 - - - . . . .",
+        "E5 - . G5 - . C#5 - E5 - A4 - - - . .",
+        "D5 - - - - - . . A4 - C#5 - D5 - . .",
+        "F5 - . A#5 - . D6 - C6 - A#5 - . . . .",
+        "A#5 - . A5 - . G5 - A#5 - D5 - - - . .",
+        "C#5 - E5 - G5 - A#5 - A5 - G5 - E5 - C#5 -",
+        "A4 - - - - - - - . . . . . . . .",
+    ]
+    for bar, name in enumerate(prog):
+        t0 = bar * 16 * st
+        root, tones = CHORD[name]
+        notes = [hz(root), hz(tones[1]) / 2, hz(tones[2]) / 2, hz(root) * 2]
+        for k in range(8):  # corcheas con swing: la de contratiempo se retrasa 1/3 de semicorchea
+            t = t0 + k * 2 * st + (st / 3 if k % 2 else 0)
+            add(b, t, 0.6 * st, notes[walk[k // 2]] if k % 2 == 0 else notes[0] * 2, wave="tri",
+                vol=0.55 if k % 2 == 0 else 0.3, a=0.002, d=0.07, s=0.2, r=0.05)  # pizzicato
+            if k % 2:  # acorde staccato en el contratiempo
+                for n in tones:
+                    add(b, t, 0.05, hz(n) * 2, duty=0.25, vol=0.045, a=0.001, d=0.04, s=0.2, r=0.03, lp=3000)
+            hat(b, t, vol=0.07 if k % 2 else 0.04)
+        kick(b, t0, vol=0.4)
+        kick(b, t0 + 8 * st, vol=0.3)
+        snare(b, t0 + 12 * st + st / 3, vol=0.18)
+    seq(b, 0, st, lead, gate=0.7, duty=0.25, vol=0.16, a=0.003, d=0.12, s=0.5, r=0.06, vib=0.2, lp=4500)
+    return b, lead
+
+
 # ---------------------------------------------------------------- Escritura y self-check
 def save(name, buf, peak_db):
     fade = int(0.002 * SR)  # la primera y la última muestra quedan en 0 (sin clic al hacer loop)
@@ -331,14 +366,17 @@ def main():
     save("music_menu", menu, -1)
     level, lead = music_level1()
     save("music_level1", level, -1)
+    shop, shop_lead = music_shop()
+    save("music_shop", shop, -1)
 
     # self-check
-    for bars in (mel, lead):
+    for bars in (mel, lead, shop_lead):
         assert all(len(bar.split()) == 16 for bar in bars), "cada compás debe tener 16 semicorcheas"
     expected = {n: (s * 0.8, s * 1.05) for n, (s, _, _) in SFX.items()}
     expected["music_menu"] = (19.2, 19.2)
     expected["music_level1"] = (64 * 60 / 140, 64 * 60 / 140)
-    assert len(expected) == 18
+    expected["music_shop"] = (20.0, 20.0)
+    assert len(expected) == 19
     for name, (lo, hi) in expected.items():
         path = OUT / f"{name}.wav"
         assert path.exists(), path
@@ -352,7 +390,7 @@ def main():
         assert peak < 32767, f"{name}: clipping"
         assert abs(data[0]) < 100 and abs(data[-1]) < 100, f"{name}: no empieza/termina cerca de 0"
         print(f"{name}.wav {dur:.3f}s ({n} muestras) pico {20 * math.log10(peak / 32767):.1f} dBFS")
-    assert len(menu) == 846720 and len(level) == 1209600  # 8 compases @100, 16 compases @140
+    assert len(menu) == 846720 and len(level) == 1209600 and len(shop) == 882000  # 8 @100, 16 @140, 8 @96
 
 
 if __name__ == "__main__":

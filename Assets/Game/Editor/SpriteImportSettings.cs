@@ -13,7 +13,7 @@ namespace RunDashC.EditorTools
         {
             if (!assetPath.StartsWith(ArtDir)) return;
             var name = Path.GetFileNameWithoutExtension(assetPath);
-            bool isBackground = name == "fondo";
+            bool isBackground = name == "fondo" || name == "duende";
             bool isSmooth = isBackground || name == "sierra" || name == "obstaculo"; // glow suave: Point parpadea al girar
 
             var importer = (TextureImporter)assetImporter;

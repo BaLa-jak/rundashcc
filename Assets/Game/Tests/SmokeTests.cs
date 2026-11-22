@@ -16,6 +16,9 @@ namespace RunDashC.Tests
         string savedName;
         int savedBest;
         readonly int[] savedProgress = new int[GameSession.LevelCount + 1];
+        int savedWallet;
+        readonly int[] savedOwn = new int[Cosmetics.All.Length];
+        readonly string[] savedEquip = new string[Cosmetics.Slots.Length];
 
         [OneTimeSetUp]
         public void SavePrefs()
@@ -24,6 +27,10 @@ namespace RunDashC.Tests
             savedName = PlayerPrefs.GetString("rdc.player", GameSession.DefaultName);
             savedBest = PlayerPrefs.GetInt("rdc.best", 0);
             for (int n = 1; n <= GameSession.LevelCount; n++) savedProgress[n] = GameSession.LevelProgress(n);
+            // La tienda también: cartera, compras y lo equipado.
+            savedWallet = Cosmetics.Wallet;
+            for (int i = 0; i < Cosmetics.All.Length; i++) savedOwn[i] = PlayerPrefs.GetInt("rdc.own." + Cosmetics.All[i].Id, 0);
+            for (int s = 0; s < savedEquip.Length; s++) savedEquip[s] = PlayerPrefs.GetString("rdc.eq." + (CosmeticSlot)s, "");
         }
 
         [OneTimeTearDown]
@@ -32,6 +39,9 @@ namespace RunDashC.Tests
             PlayerPrefs.SetString("rdc.player", savedName);
             PlayerPrefs.SetInt("rdc.best", savedBest);
             for (int n = 1; n <= GameSession.LevelCount; n++) PlayerPrefs.SetInt("rdc.lvl" + n, savedProgress[n]);
+            PlayerPrefs.SetInt("rdc.wallet", savedWallet);
+            for (int i = 0; i < Cosmetics.All.Length; i++) PlayerPrefs.SetInt("rdc.own." + Cosmetics.All[i].Id, savedOwn[i]);
+            for (int s = 0; s < savedEquip.Length; s++) PlayerPrefs.SetString("rdc.eq." + (CosmeticSlot)s, savedEquip[s]);
             PlayerPrefs.Save();
         }
 
@@ -62,11 +72,12 @@ namespace RunDashC.Tests
                 Assert.IsNotNull(Resources.Load<AudioClip>("Audio/" + AudioManager.FileName(s)), s.ToString());
             Assert.IsNotNull(Resources.Load<AudioClip>("Audio/" + AudioManager.FileName(Music.Menu)));
             Assert.IsNotNull(Resources.Load<AudioClip>("Audio/" + AudioManager.FileName(Music.Level1)));
+            Assert.IsNotNull(Resources.Load<AudioClip>("Audio/" + AudioManager.FileName(Music.Shop)));
         }
 
         [UnityTest]
         public IEnumerator SceneLoadsWithoutErrors(
-            [Values(SceneNames.Menu, SceneNames.LevelSelect, SceneNames.Game, SceneNames.GameOver, SceneNames.Help)] string scene)
+            [Values(SceneNames.Menu, SceneNames.LevelSelect, SceneNames.Game, SceneNames.GameOver, SceneNames.Help, SceneNames.Shop)] string scene)
         {
             SceneManager.LoadScene(scene);
             yield return new WaitForSecondsRealtime(1.5f);
@@ -124,6 +135,46 @@ namespace RunDashC.Tests
             Assert.AreEqual(100, GameSession.LevelProgress(1), "La meta no guardó el 100%");
             yield return WaitFor(() => SceneManager.GetActiveScene().name == SceneNames.LevelSelect, 6f);
             Assert.AreEqual(SceneNames.LevelSelect, SceneManager.GetActiveScene().name, "No volvió al selector de niveles");
+        }
+
+        [Test]
+        public void EveryCosmeticHasArt()
+        {
+            Assert.AreEqual(20, Cosmetics.All.Length);
+            foreach (var c in Cosmetics.All)
+            {
+                Assert.IsNotNull(Resources.Load<Sprite>("Art/" + c.Art), c.Art);
+                Assert.IsNotNull(Resources.Load<Sprite>("Art/" + c.Wear), c.Wear);
+            }
+            Assert.IsNotNull(Resources.Load<Sprite>("Art/duende"));
+            Assert.IsNotNull(Resources.Load<Sprite>("Art/tienda_icono"));
+        }
+
+        [Test]
+        public void BuyingSpendsWalletAndEquips()
+        {
+            var hat = Cosmetics.All[0];
+            var other = Cosmetics.All[1];
+            PlayerPrefs.SetInt("rdc.own." + hat.Id, 0);
+            PlayerPrefs.SetInt("rdc.own." + other.Id, 0);
+            PlayerPrefs.SetInt("rdc.wallet", hat.Precio - 1);
+            Assert.IsFalse(Cosmetics.TryBuy(hat), "Compró sin bits suficientes");
+
+            Cosmetics.AddToWallet(1);
+            Assert.IsTrue(Cosmetics.TryBuy(hat));
+            Assert.AreEqual(0, Cosmetics.Wallet);
+            Assert.IsTrue(Cosmetics.Owns(hat));
+            Assert.IsTrue(Cosmetics.IsEquipped(hat));
+            Assert.IsFalse(Cosmetics.TryBuy(hat), "Lo compró dos veces");
+
+            Assert.IsFalse(Cosmetics.Toggle(other), "Equipó algo que no compró");
+            Assert.IsFalse(Cosmetics.Toggle(hat));
+            Assert.IsNull(Cosmetics.Equipped(hat.Slot));
+            Assert.IsTrue(Cosmetics.Toggle(hat));
+
+            GameSession.StartLevel(1);
+            GameSession.AddBits(3);
+            Assert.AreEqual(3, Cosmetics.Wallet, "Los bits recogidos no llegan a la cartera");
         }
 
         [Test]
