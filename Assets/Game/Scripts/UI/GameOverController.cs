@@ -22,11 +22,16 @@ namespace RunDashC
             string num = AsciiTheme.ToHex(AsciiTheme.Cyan), dim = AsciiTheme.ToHex(AsciiTheme.GreenDim);
             string Line(string name, string value) =>
                 $"{name} <color=#{dim}>=</color> <color=#{num}>{value}</color><color=#{dim}>;</color>";
-            statsText.text = string.Join("\n",
-                Line("nivel_alcanzado", GameSession.Level.ToString("00")),
-                Line("bits", GameSession.Bits.ToString("000")),
-                Line("record", GameSession.BestBits.ToString("000")));
-            newRecord.SetActive(GameSession.IsNewRecord);
+            statsText.text = GameSession.IsEndless
+                ? string.Join("\n",
+                    Line("distancia", GameSession.Distance.ToString("0000") + " m"),
+                    Line("record_distancia", GameSession.BestDistance.ToString("0000") + " m"),
+                    Line("bits", GameSession.Bits.ToString("000")))
+                : string.Join("\n",
+                    Line("nivel_alcanzado", GameSession.Level.ToString("00")),
+                    Line("bits", GameSession.Bits.ToString("000")),
+                    Line("record", GameSession.BestBits.ToString("000")));
+            newRecord.SetActive(GameSession.IsNewRecord || GameSession.IsNewDistanceRecord);
         }
 
         void Start()

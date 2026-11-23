@@ -140,13 +140,13 @@ def obstacle(kind, m, f, cfg, rng):
     return f
 
 
-def build(level, cfg, rng):
+def build(level, cfg, rng, lead=22):
     speed = cfg["speed"] * (1 + 0.15 * (level - 1))  # GameSession.SpeedMultiplier
     jump = simulate.JUMP_V / -simulate.GRAVITY * 2 * speed  # avance de un salto completo
     room = math.ceil(cfg["room"] * jump)
     m = Map()
     f = 2
-    m.flat(22, f)
+    m.flat(lead, f)
     m.items[3][f] = "P"
     world = simulate.World(m.floor, m.items)
     runs = [simulate.Run(world, speed, off) for off in simulate.OFFSETS]
@@ -204,8 +204,69 @@ def write(level, cfg, m):
     return "\n".join(lines) + "\n"
 
 
-def main():
+# Modo infinito: tramos cortos que el juego encadena al azar (LevelBuilder.StreamTo). Todos empiezan y
+# terminan planos a la altura 2, así cualquier orden es seguro. Cada 2 tramos sube un tier: 1-4 = niveles 2-5,
+# 5..ENDLESS_TIERS multiplican el nivel 5 (más rápido, menos respiro, más enemigos y combos).
+ENDLESS_TIERS = 12
+ENDLESS_PER_TIER = 2
+ENDLESS_OUT = OUT / "Infinito"
+HARD = ("bug", "saw_moving", "div_moving", "combo", "corridor", "sandwich")
+
+
+def endless_tier(t):
+    """Config del tier t con velocidad ABSOLUTA (el juego usa multiplicador 1 en el infinito)."""
+    lvl = min(t + 1, 5)
+    base = LEVELS[lvl]
+    k = t - 4 if t > 4 else 0  # tiers extrapolados más allá del nivel 5
+    grow = k // 2
+    return dict(
+        base, length=140, checkpoints=1, hints=None,
+        speed=round(base["speed"] * (1 + 0.15 * (lvl - 1)) * 1.06 ** k, 3),
+        room=max(0.15, base["room"] * 0.9 ** k), extra=base["extra"] if k == 0 else 0,
+        gap=(base["gap"][0], min(7, base["gap"][1] + grow)),  # check_level: hueco máx. 7
+        spikes=(base["spikes"][0], base["spikes"][1] + grow),
+        weights={w: v * (1.25 ** k if w in HARD else 1) for w, v in base["weights"].items()},
+    )
+
+
+def write_chunk(t, cfg, m):
+    lines = [
+        f"# RUNDASHC · Infinito tier {t} (generado por Tools/level/generate_levels.py, no editar a mano).",
+        "# Tramo del modo infinito: P y F solo marcan el tramo; el juego los encadena al azar.",
+        f"speed {cfg['speed']:g}",
+        "map",
+        *m.render(),
+        "end",
+    ]
+    return "\n".join(lines) + "\n"
+
+
+def endless():
     ok = True
+    ENDLESS_OUT.mkdir(exist_ok=True)
+    for t in range(1, ENDLESS_TIERS + 1):
+        cfg = endless_tier(t)
+        for i in range(ENDLESS_PER_TIER):
+            m, stats = build(1, cfg, random.Random(t * 104729 + i), lead=6)
+            assert m.floor[0] == 2 and m.floor[-1] == 2, "los tramos deben empezar y acabar a altura 2"
+            text = write_chunk(t, cfg, m)
+            errors, _ = check_level.check(text, dj_taught=True)
+            passed, x = simulate.solve(text, 1)
+            if not passed:
+                errors.append(f"simulate: imposible sin golpes cerca de la columna {x:.0f}")
+            name = f"t{t:02}_{'ab'[i]}.txt"
+            print(f"Infinito/{name}: {stats}")
+            for e in errors:
+                print("  ERROR:", e)
+            if errors:
+                ok = False
+                continue
+            (ENDLESS_OUT / name).write_text(text, encoding="utf-8")
+    return ok
+
+
+def main():
+    ok = endless()
     for level, cfg in LEVELS.items():
         m, stats = build(level, cfg, random.Random(level * 7919))
         text = write(level, cfg, m)

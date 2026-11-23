@@ -31,7 +31,7 @@ namespace RunDashC
         const float FlashTime = 0.35f, FlashAlpha = 0.35f, CountdownTime = 0.95f;
         const string FatalTitle = "FATAL ERROR";
 
-        int lives, bits, levelAtStart, lostIndex = -1, lastPct = -1;
+        int lives, bits, levelAtStart, lostIndex = -1, lastPct = -1, shownTier;
         float blinkUntil, lifeLostUntil, punchStart, flashStart = -10f, countdownStart = -10f, nextScramble;
         bool punching;
         Color countdownColor;
@@ -93,6 +93,7 @@ namespace RunDashC
             bits = GameSession.Bits;
 
             infoText.text = $"JUGADOR: {GameSession.PlayerName}    NIVEL {GameSession.Level:00}";
+            if (GameSession.IsEndless) RefreshEndless();
             livesText.text = LivesString(true);
             livesText.color = lives > 1 ? AsciiTheme.White : AsciiTheme.Red;
             livesText.rectTransform.localScale = Vector3.one;
@@ -168,8 +169,32 @@ namespace RunDashC
             return $"bits: {number}   {record}";
         }
 
+        /// <summary>Infinito: la barra de progreso pasa a ser distancia + récord; arriba, el multiplicador de velocidad.</summary>
+        void RefreshEndless()
+        {
+            var run = RunManager.Instance;
+            float x = run != null && run.player != null ? run.player.transform.position.x : 0f;
+            float factor = run != null && run.level != null ? run.level.SpeedFactorAt(x) : 1f;
+            int tier = run != null && run.level != null ? run.level.TierAt(x) : 1;
+            infoText.text = $"JUGADOR: {GameSession.PlayerName}    INFINITO x{factor:0.00}";
+            string record = GameSession.IsNewDistanceRecord
+                ? Paint($"record: {GameSession.BestDistance:0000} m // NUEVO RECORD!", AsciiTheme.Yellow)
+                : Paint($"record: {GameSession.BestDistance:0000} m", AsciiTheme.GreenDim);
+            progressText.text = $"distancia: {GameSession.Distance:0000} m   {record}";
+            if (tier > shownTier)
+            {
+                if (shownTier > 0)
+                {
+                    if (toastRoutine != null) StopCoroutine(toastRoutine);
+                    toastRoutine = StartCoroutine(Toast($"> dificultad++ // tier {tier:00}"));
+                }
+                shownTier = tier;
+            }
+        }
+
         void OnProgress(float t)
         {
+            if (GameSession.IsEndless) return;
             int pct = Mathf.RoundToInt(t * 100f);
             if (pct == lastPct) return;
             lastPct = pct;

@@ -14,7 +14,7 @@ namespace RunDashC.Tests
     public class SmokeTests
     {
         string savedName;
-        int savedBest;
+        int savedBest, savedBestDistance;
         readonly int[] savedProgress = new int[GameSession.LevelCount + 1];
         int savedWallet;
         readonly int[] savedOwn = new int[Cosmetics.All.Length];
@@ -26,6 +26,7 @@ namespace RunDashC.Tests
             // Los tests usan StartNewRun: no queremos pisar el nombre ni el récord del jugador real.
             savedName = PlayerPrefs.GetString("rdc.player", GameSession.DefaultName);
             savedBest = PlayerPrefs.GetInt("rdc.best", 0);
+            savedBestDistance = GameSession.BestDistance;
             for (int n = 1; n <= GameSession.LevelCount; n++) savedProgress[n] = GameSession.LevelProgress(n);
             // La tienda también: cartera, compras y lo equipado.
             savedWallet = Cosmetics.Wallet;
@@ -38,6 +39,7 @@ namespace RunDashC.Tests
         {
             PlayerPrefs.SetString("rdc.player", savedName);
             PlayerPrefs.SetInt("rdc.best", savedBest);
+            PlayerPrefs.SetInt("rdc.inf.best", savedBestDistance);
             for (int n = 1; n <= GameSession.LevelCount; n++) PlayerPrefs.SetInt("rdc.lvl" + n, savedProgress[n]);
             PlayerPrefs.SetInt("rdc.wallet", savedWallet);
             for (int i = 0; i < Cosmetics.All.Length; i++) PlayerPrefs.SetInt("rdc.own." + Cosmetics.All[i].Id, savedOwn[i]);
@@ -178,6 +180,51 @@ namespace RunDashC.Tests
         }
 
         [Test]
+        public void EndlessChunksExistForEveryTierAndParse()
+        {
+            var assets = Resources.LoadAll<TextAsset>("Levels/Infinito");
+            Assert.GreaterOrEqual(assets.Length, 2, "Faltan tramos en Resources/Levels/Infinito");
+            var tiers = new System.Collections.Generic.HashSet<int>();
+            foreach (var a in assets)
+            {
+                var chunk = LevelData.Parse(a.text);
+                Assert.Greater(chunk.Speed, 0f, a.name);
+                tiers.Add(int.Parse(a.name.Substring(1, 2)));
+            }
+            for (int t = 1; t <= tiers.Count; t++) Assert.IsTrue(tiers.Contains(t), $"Falta el tier {t} del infinito");
+        }
+
+        [Test]
+        public void EndlessDistanceRecordAndRetry()
+        {
+            PlayerPrefs.SetInt("rdc.inf.best", 10);
+            GameSession.StartLevel(GameSession.EndlessLevel);
+            Assert.IsTrue(GameSession.IsEndless);
+            Assert.AreEqual(1f, GameSession.SpeedMultiplier, "El infinito trae la velocidad absoluta en cada tramo");
+            GameSession.SetDistance(8);
+            Assert.AreEqual(10, GameSession.BestDistance);
+            Assert.IsFalse(GameSession.IsNewDistanceRecord);
+            GameSession.SetDistance(25);
+            GameSession.SetDistance(20); // la distancia nunca baja
+            Assert.AreEqual(25, GameSession.Distance);
+            Assert.AreEqual(25, GameSession.BestDistance);
+            Assert.IsTrue(GameSession.IsNewDistanceRecord);
+            GameSession.RetryLevel();
+            Assert.AreEqual(0, GameSession.Distance);
+            Assert.AreEqual(25, GameSession.BestDistance);
+        }
+
+        [UnityTest]
+        public IEnumerator EndlessRunStreamsChunksAndCountsDistance()
+        {
+            yield return StartRun(GameSession.EndlessLevel);
+            Assert.IsNull(GameObject.Find("finish"), "El infinito no tiene meta");
+            Assert.IsNotNull(GameObject.Find("chunk_0"), "No se construyó el primer tramo");
+            yield return new WaitForSecondsRealtime(1.5f);
+            Assert.Greater(GameSession.Distance, 5, "La distancia no sube al correr");
+        }
+
+        [Test]
         public void AllLevelsExistAndParse()
         {
             Assert.AreEqual(GameSession.LevelCount, LevelSelectController.Files.Length);
@@ -218,12 +265,13 @@ namespace RunDashC.Tests
         }
 
         /// <summary>Nueva partida en Game y espera a que termine la cuenta regresiva.</summary>
-        static IEnumerator StartRun()
+        static IEnumerator StartRun(int level = 1)
         {
             bool go = false;
             Action<int> onTick = n => { if (n == 0) go = true; };
             RunEvents.CountdownTick += onTick;
             GameSession.StartNewRun("TEST");
+            if (level != 1) GameSession.StartLevel(level);
             SceneManager.LoadScene(SceneNames.Game);
             yield return WaitFor(() => go, 6f);
             RunEvents.CountdownTick -= onTick;

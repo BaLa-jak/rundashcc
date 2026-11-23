@@ -56,6 +56,19 @@ namespace RunDashC
         public char At(int x, int y) =>
             x < 0 || y < 0 || x >= Width || y >= Rows ? Empty : cells[x, y];
 
+        /// <summary>Modo infinito: pega <paramref name="chunk"/> a la derecha y devuelve su offset x en el mundo.</summary>
+        public int Append(LevelData chunk)
+        {
+            int offset = Width;
+            var grown = new char[Width + chunk.Width, Rows];
+            for (int x = 0; x < grown.GetLength(0); x++)
+                for (int y = 0; y < Rows; y++)
+                    grown[x, y] = x < offset ? cells[x, y] : chunk.cells[x - offset, y];
+            cells = grown;
+            Width += chunk.Width;
+            return offset;
+        }
+
         /// <summary>Carga Resources/Levels/nivel{level}.txt; si no existe, usa nivel1.</summary>
         public static LevelData Load(int level)
         {

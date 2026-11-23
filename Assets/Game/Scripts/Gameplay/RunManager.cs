@@ -53,7 +53,7 @@ namespace RunDashC
         {
             AudioManager.PlayMusic(Music.Level1);
             RespawnPoint = level.StartPosition;
-            player.levelSpeed = level.Data.Speed;
+            player.levelSpeed = level.SpeedAt(RespawnPoint.x);
             player.Respawn(RespawnPoint);
 
             yield return new WaitForSeconds(FadeInWait);
@@ -76,7 +76,14 @@ namespace RunDashC
                 Time.frameCount != SceneFlow.ResumedFrame && (State == RunState.Countdown || State == RunState.Running))
                 SceneFlow.Pause();
 
-            if (State == RunState.Running)
+            if (State == RunState.Running && GameSession.IsEndless)
+            {
+                float x = player.transform.position.x;
+                level.StreamTo(x, Mathf.Min(x, RespawnPoint.x));
+                player.levelSpeed = level.SpeedAt(x);
+                GameSession.SetDistance(Mathf.FloorToInt(x - level.StartPosition.x));
+            }
+            else if (State == RunState.Running)
             {
                 float p = (player.transform.position.x - level.StartPosition.x) / Mathf.Max(0.01f, level.FinishX - level.StartPosition.x);
                 RunEvents.RaiseProgress(p);

@@ -5,7 +5,8 @@ namespace RunDashC.EditorTools
 {
     /// <summary>
     /// Escena Niveles: misma ventana de terminal que el menú, "ls -l" de ./niveles con una fila por nivel
-    /// ([ NIVEL 0N ] + archivo + barra de progreso; el texto lo pone LevelSelectController) y [ VOLVER ].
+    /// ([ NIVEL 0N ] + archivo + barra de progreso; el texto lo pone LevelSelectController), [ INFINITO ] con su
+    /// récord de distancia, [ TIENDA ] y [ VOLVER ].
     /// </summary>
     public static class LevelSelectSceneBuilder
     {
@@ -51,31 +52,38 @@ namespace RunDashC.EditorTools
             float btnW = ("NIVEL 00".Length + 10) * UiKit.Cw(btnFs);
             var buttons = new Button[GameSession.LevelCount];
             var rows = new Text[GameSession.LevelCount];
-            for (int i = 0; i < GameSession.LevelCount; i++)
+            Button endless = null;
+            Text endlessRow = null;
+            for (int i = 0; i <= GameSession.LevelCount; i++) // la última fila es el infinito
             {
-                float y = 65f - i * 78f;
-                buttons[i] = AsciiButton.Create(root, $"Level{i + 1:00}", $"NIVEL {i + 1:00}", btnFs, Center, new Vector2(left + btnW * 0.5f, y)).GetComponent<Button>();
-                buttons[i].navigation = new Navigation { mode = Navigation.Mode.Vertical };
+                float y = 75f - i * 70f;
+                bool inf = i == GameSession.LevelCount;
+                var b = AsciiButton.Create(root, inf ? "Endless" : $"Level{i + 1:00}", inf ? "INFINITO" : $"NIVEL {i + 1:00}", btnFs, Center, new Vector2(left + btnW * 0.5f, y)).GetComponent<Button>();
+                b.navigation = new Navigation { mode = Navigation.Mode.Vertical };
                 float textLeft = left + btnW + 20f;
-                rows[i] = UiKit.Label(root, $"Row{i + 1:00}", LevelSelectController.Files[i], rowFs, AsciiTheme.White, TextAnchor.MiddleLeft, Center,
+                var row = UiKit.Label(root, inf ? "RowEndless" : $"Row{i + 1:00}", inf ? LevelSelectController.EndlessFile : LevelSelectController.Files[i], rowFs, AsciiTheme.White, TextAnchor.MiddleLeft, Center,
                     new Vector2(textLeft + 560f, y), new Vector2(1120f, rowFs * 1.3f));
+                if (inf) { endless = b; endlessRow = row; }
+                else { buttons[i] = b; rows[i] = row; }
             }
 
             // Tienda (con el icono SHOP pegado al botón para que haga el punch con él) y Volver.
-            var shop = AsciiButton.Create(root, "ShopButton", "TIENDA", 44, Center, new Vector2(-220, -350)).GetComponent<Button>();
+            var shop = AsciiButton.Create(root, "ShopButton", "TIENDA", 44, Center, new Vector2(-220, -380)).GetComponent<Button>();
             var shopIcon = UiKit.SpriteImage(shop.transform, "Icono", SceneBuilder.LoadResource<Sprite>("Art/tienda_icono"), Center, new Vector2(-190, 0), new Vector2(84, 74));
             if (shopIcon != null) shopIcon.raycastTarget = false;
-            var back = AsciiButton.Create(root, "BackButton", "VOLVER", 44, Center, new Vector2(220, -350)).GetComponent<Button>();
+            var back = AsciiButton.Create(root, "BackButton", "VOLVER", 44, Center, new Vector2(220, -380)).GetComponent<Button>();
             shop.navigation = new Navigation { mode = Navigation.Mode.Automatic };
             back.navigation = new Navigation { mode = Navigation.Mode.Automatic };
             var walletLabel = UiKit.Label(root, "Wallet", "// cartera: 0 bits", 32, AsciiTheme.Yellow, TextAnchor.MiddleRight, Center, new Vector2(330, 135), new Vector2(900, 44));
-            UiKit.Label(root, "Hint", "// [ESPACIO] saltar   [ESC] pausa   // el % es lo más lejos que llegaste", 28, AsciiTheme.GreenDim, TextAnchor.MiddleCenter, Center, new Vector2(0, -430), new Vector2(1500, 40));
+            UiKit.Label(root, "Hint", "// [ESPACIO] saltar   [ESC] pausa   // el % es lo más lejos que llegaste", 28, AsciiTheme.GreenDim, TextAnchor.MiddleCenter, Center, new Vector2(0, -455), new Vector2(1500, 40));
 
             AsciiUi.AddCrtOverlay(canvas);
 
             var ctrl = canvas.gameObject.AddComponent<LevelSelectController>();
             ctrl.levelButtons = buttons;
             ctrl.rowTexts = rows;
+            ctrl.endlessButton = endless;
+            ctrl.endlessRow = endlessRow;
             ctrl.playerLabel = player;
             ctrl.backButton = back;
             ctrl.shopButton = shop;

@@ -1,0 +1,17 @@
+# RUNDASHC · Infinito tier 11 (generado por Tools/level/generate_levels.py, no editar a mano).
+# Tramo del modo infinito: P y F solo marcan el tramo; el juego los encadena al azar.
+speed 21.652
+map
+
+
+
+
+
+                 ***     ***                                                            ***                   **      ***
+       S                              **      S                 S                               S    S                             S        S
+           z                    s                  s   s   s                                             s                    z        s
+
+   P  ^^       ^^   ^   ^   ^                ^^^               S    ^^^   C           ^^   ^^   ^   S        ^  ^^   ^   ^^       S        S        F
+=================   =====   ========      ==============================================   ===================  ======   ==============================================
+=================   =====   ========      ==============================================   ===================  ======   ==============================================
+end

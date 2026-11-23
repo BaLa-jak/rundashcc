@@ -22,6 +22,11 @@ Asset generators (Python). Use plain `python3`, not `-I`: PIL lives in the user 
 - `python3 Tools/art/process_sprites.py`: turns `Assets/*.jpeg` into transparent PNGs in `Assets/Game/Resources/Art/`. It also slices `cosmeticos.jpeg` into `cos_<id>.png` ×20 + `tienda_icono.png` (row bands/columns `COS_ROWS`/`COS_COLS`, ids in the same order as `Cosmetics.All`) and scales `duende.jpeg` (shopkeeper). Worn layers `wear_<id>.png`: shirts map the icon pattern onto the rat's torso fur; hats/gloves/shoes are side-view pixel templates (`HAT_TPL`, `GLOVE_TPL`, `SHOE_TPL`, colors in `WEAR_PAL`) placed by rat-pixel coordinates (`HAT`, `GLOVE`, `SHOE`). If `camarada.png` changes, re-measure those.
 - `python3 Tools/audio/generate_audio.py`: synthesizes all SFX and music WAVs (deterministic) into `Assets/Game/Resources/Audio/`.
 - `python3 Tools/level/generate_levels.py`: regenerates levels 2–5 (deterministic, difficulty table `LEVELS` inside: speed, spacing, obstacle mix, checkpoints). Every obstacle is kept only if `simulate.py` still finds a no-hit route. Don't hand-edit `nivel2..5.txt`.
+  - It also writes the endless chunks `Levels/Infinito/tNN_{a,b}.txt`: `ENDLESS_TIERS` tiers × `ENDLESS_PER_TIER`, all starting and ending flat at height 2.
+    - Tiers 1–4 are levels 2–5.
+    - Later tiers multiply level 5 (`endless_tier`).
+    - `speed` in each chunk is **absolute** (the multiplier is 1 in endless).
+  - It takes about 2–3 minutes.
 - `python3 Tools/level/simulate.py [ruta]`: replicates `CamaradaController`/`RunTuning` physics and checks each level can be cleared without hits (input every 60 ms, hazards +0.1 u, 8 phases for moving hazards). Keep its constants in sync with `RunTuning` and the hazard colliders.
 - `python3 Tools/level/check_level.py`: validates every `nivel*.txt` against the jump/gap rules (double jump counts as taught from level 2).
 
@@ -52,6 +57,10 @@ All game code lives in `Assets/Game/`.
 
 **Game flow.**
 - `Menu` (name, INICIAR) → `Niveles` (level select, `LevelSelectController`) → `GameSession.StartLevel(n)` → `Game` (countdown → run).
+- `Niveles` → INFINITO → `GameSession.StartLevel(EndlessLevel)` → `Game` in endless mode (`IsEndless`).
+  - `LevelBuilder.StreamTo` appends random chunks of the current tier (`LevelData.Append`, world-x cells so `BugEnemy` still works) and destroys those behind.
+  - The tier rises every 2 chunks. After the last tier, speed keeps going ×1.03 per chunk without simulation.
+  - No goal: the score is `GameSession.Distance` (record `rdc.inf.best`). Bits work as usual. Losing all lives → `GameOver`.
 - `Niveles` → TIENDA → `Tienda` (`ShopController`, music `Music.Shop`; click = buy+equip, or equip/unequip if owned) → VOLVER → `Niveles`.
 - Pause (`Help`): REANUDAR or SALIR → `Niveles`.
 - 0 lives → `GameOver`. REANUDAR = `RetryLevel`; SALIR → `Niveles`.

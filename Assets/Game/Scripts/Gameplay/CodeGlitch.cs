@@ -35,7 +35,8 @@ namespace RunDashC
             for (int tries = 0; tries < 6 && texts.Count > 0; tries++)
             {
                 var tm = texts[Random.Range(0, texts.Count)];
-                if (tm == null || tm.text.Length == 0 || !tm.GetComponent<MeshRenderer>().isVisible) continue;
+                if (tm == null) { texts.RemoveAll(t => t == null); continue; } // tramos del infinito ya borrados
+                if (tm.text.Length == 0 || !tm.GetComponent<MeshRenderer>().isVisible) continue;
                 original = tm.text;
                 int i = Random.Range(0, original.Length);
                 tm.text = original.Substring(0, i) + "<color=#FFFFFF>" + Glyphs[Random.Range(0, Glyphs.Length)] + "</color>" + original.Substring(i + 1);

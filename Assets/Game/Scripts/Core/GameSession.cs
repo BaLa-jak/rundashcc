@@ -16,10 +16,13 @@ namespace RunDashC
         public const string DefaultName = "SYSADMIN";
         /// <summary>Niveles en Resources/Levels (nivel1..nivelN). El último se desbloquea con los demás al 100%.</summary>
         public const int LevelCount = 5;
+        /// <summary>Nivel infinito (después de los normales): tramos de Resources/Levels/Infinito, puntaje = distancia.</summary>
+        public const int EndlessLevel = LevelCount + 1;
 
         const string PrefName = "rdc.player";
         const string PrefBest = "rdc.best";
         const string PrefProgress = "rdc.lvl"; // + número de nivel
+        const string PrefBestDistance = "rdc.inf.best";
 
         public static event Action Changed;
 
@@ -28,11 +31,16 @@ namespace RunDashC
         public static int Lives { get; private set; } = MaxLives;
         public static int Bits { get; private set; }
         public static bool IsNewRecord { get; private set; }
+        public static bool IsNewDistanceRecord { get; private set; }
         public static int BestBits => PlayerPrefs.GetInt(PrefBest, 0);
+        /// <summary>Metros recorridos en el infinito y su récord.</summary>
+        public static int Distance { get; private set; }
+        public static int BestDistance => PlayerPrefs.GetInt(PrefBestDistance, 0);
+        public static bool IsEndless => Level == EndlessLevel;
         public static string SavedName => PlayerPrefs.GetString(PrefName, DefaultName);
 
-        /// <summary>Nivel 1 = 1.0, cada nivel siguiente +15% de velocidad.</summary>
-        public static float SpeedMultiplier => 1f + 0.15f * (Level - 1);
+        /// <summary>Nivel 1 = 1.0, cada nivel siguiente +15% de velocidad. El infinito trae la velocidad absoluta en cada tramo.</summary>
+        public static float SpeedMultiplier => IsEndless ? 1f : 1f + 0.15f * (Level - 1);
 
         static int bitsAtLevelStart;
 
@@ -45,8 +53,9 @@ namespace RunDashC
             Level = 1;
             Lives = MaxLives;
             Bits = 0;
+            Distance = 0;
             bitsAtLevelStart = 0;
-            IsNewRecord = false;
+            IsNewRecord = IsNewDistanceRecord = false;
         }
 
         /// <summary>Limpia el nombre: sin espacios extremos ni caracteres de control, máx. 12, en mayúsculas.</summary>
@@ -72,19 +81,21 @@ namespace RunDashC
             Level = 1;
             Lives = MaxLives;
             Bits = 0;
+            Distance = 0;
             bitsAtLevelStart = 0;
-            IsNewRecord = false;
+            IsNewRecord = IsNewDistanceRecord = false;
             Notify();
         }
 
         /// <summary>Partida nueva en el nivel elegido en el selector: 3 vidas y bits en 0.</summary>
         public static void StartLevel(int level)
         {
-            Level = Mathf.Clamp(level, 1, LevelCount);
+            Level = Mathf.Clamp(level, 1, EndlessLevel);
             Lives = MaxLives;
             Bits = 0;
+            Distance = 0;
             bitsAtLevelStart = 0;
-            IsNewRecord = false;
+            IsNewRecord = IsNewDistanceRecord = false;
             Notify();
         }
 
@@ -112,7 +123,8 @@ namespace RunDashC
         {
             Lives = MaxLives;
             Bits = bitsAtLevelStart;
-            IsNewRecord = false;
+            Distance = 0;
+            IsNewRecord = IsNewDistanceRecord = false;
             Notify();
         }
 
@@ -136,6 +148,19 @@ namespace RunDashC
             {
                 PlayerPrefs.SetInt(PrefBest, Bits);
                 IsNewRecord = true;
+            }
+            Notify();
+        }
+
+        /// <summary>Infinito: metros recorridos (solo sube). Superar el récord lo guarda y marca IsNewDistanceRecord.</summary>
+        public static void SetDistance(int meters)
+        {
+            if (meters <= Distance) return;
+            Distance = meters;
+            if (Distance > BestDistance)
+            {
+                PlayerPrefs.SetInt(PrefBestDistance, Distance);
+                IsNewDistanceRecord = true;
             }
             Notify();
         }

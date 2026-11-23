@@ -11,10 +11,13 @@ namespace RunDashC
     {
         /// <summary>Nombre "de archivo" de cada nivel, en el orden nivel1..nivelN.</summary>
         public static readonly string[] Files = { "main.c", "bugs.c", "sierras.c", "div_cero.c", "kernel.c" };
+        public const string EndlessFile = "while(1).c";
         const int BarCells = 20;
 
         public Button[] levelButtons;
         public Text[] rowTexts;
+        public Button endlessButton;
+        public Text endlessRow;
         public Text playerLabel;
         public Button backButton;
         public Button shopButton;
@@ -44,6 +47,10 @@ namespace RunDashC
                 if (firstChoice == null && open && GameSession.LevelProgress(level) < 100) firstChoice = levelButtons[i].gameObject;
             }
             if (firstChoice == null) firstChoice = levelButtons[0].gameObject;
+            endlessButton.onClick.AddListener(() => Play(GameSession.EndlessLevel));
+            string C(Color c) => AsciiTheme.ToHex(c);
+            endlessRow.text = $"<color=#{C(AsciiTheme.White)}>{EndlessFile.PadRight(12)}</color><color=#{C(AsciiTheme.Yellow)}>record: {GameSession.BestDistance:0000} m</color>  " +
+                              $"<color=#{C(AsciiTheme.GreenDim)}>// infinito: cada vez más rápido</color>";
             backButton.onClick.AddListener(() => Leave(SceneNames.Menu));
             shopButton.onClick.AddListener(() => Leave(SceneNames.Shop));
             walletLabel.text = $"// cartera: {Cosmetics.Wallet} bits";
