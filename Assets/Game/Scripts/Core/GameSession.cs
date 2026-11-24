@@ -11,7 +11,9 @@ namespace RunDashC
     /// </summary>
     public static class GameSession
     {
-        public const int MaxLives = 3;
+        public const int BaseLives = 3;
+        /// <summary>3, o 4 con la habilidad VIDA EXTRA.</summary>
+        public static int MaxLives => BaseLives + (Abilities.Has(Ability.VidaExtra) ? 1 : 0);
         public const int MaxNameLength = 12;
         public const string DefaultName = "SYSADMIN";
         /// <summary>Niveles en Resources/Levels (nivel1..nivelN). El último se desbloquea con los demás al 100%.</summary>
@@ -28,7 +30,7 @@ namespace RunDashC
 
         public static string PlayerName { get; private set; } = DefaultName;
         public static int Level { get; private set; } = 1;
-        public static int Lives { get; private set; } = MaxLives;
+        public static int Lives { get; private set; } = BaseLives;
         public static int Bits { get; private set; }
         public static bool IsNewRecord { get; private set; }
         public static bool IsNewDistanceRecord { get; private set; }
@@ -126,6 +128,15 @@ namespace RunDashC
             Distance = 0;
             IsNewRecord = IsNewDistanceRecord = false;
             Notify();
+        }
+
+        /// <summary>HOT RELOAD: +1 vida sin pasar de <see cref="MaxLives"/>. True si sumó.</summary>
+        public static bool GainLife()
+        {
+            if (Lives <= 0 || Lives >= MaxLives) return false;
+            Lives++;
+            Notify();
+            return true;
         }
 
         /// <returns>Vidas restantes.</returns>

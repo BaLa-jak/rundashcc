@@ -7,7 +7,7 @@ namespace RunDashC
     public enum Sfx
     {
         Click, Hover, Type, Start, Jump, DoubleJump, Land, Bit, Hit, Stomp,
-        Checkpoint, Pause, Countdown, Go, LevelComplete, GameOver, Portal
+        Checkpoint, Pause, Countdown, Go, LevelComplete, GameOver, Portal, Star
     }
 
     public enum Music { None, Menu, Level1, Shop, Produccion }

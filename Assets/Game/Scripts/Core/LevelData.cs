@@ -17,7 +17,7 @@ namespace RunDashC
     /// </code>
     /// Leyenda: '=' bloque/suelo · '^' púas · 'B' bug · 'S' sierra · 's' sierra móvil ·
     /// 'Z' /0 · 'z' /0 móvil · '*' bit · 'C' checkpoint · 'F' meta · 'P' inicio · ' ' vacío ·
-    /// 'V' portal azul (mundo al revés) · 'D' portal morado (dimensión producción).
+    /// 'V' portal azul (mundo al revés) · 'D' portal morado (dimensión producción) · 'E' estrella oculta (Tools/level/place_stars.py).
     /// </summary>
     public sealed class LevelData
     {
@@ -37,8 +37,9 @@ namespace RunDashC
         public const char Empty = ' ';
         public const char PortalFlip = 'V';
         public const char PortalProduction = 'D';
+        public const char Star = 'E';
 
-        const string Legend = "=^BSsZz*CFPVD ";
+        const string Legend = "=^BSsZz*CFPVDE ";
 
         public struct Hint
         {

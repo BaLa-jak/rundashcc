@@ -21,6 +21,9 @@ namespace RunDashC
         public Text playerLabel;
         public Button backButton;
         public Button shopButton;
+        public Button abilitiesButton;
+        /// <summary>3 por nivel, en orden nivel1 estrella0..2, nivel2...</summary>
+        public Image[] starImages;
         public Text walletLabel;
 
         GameObject firstChoice;
@@ -53,6 +56,14 @@ namespace RunDashC
                               $"<color=#{C(AsciiTheme.GreenDim)}>// infinito: cada vez más rápido</color>";
             backButton.onClick.AddListener(() => Leave(SceneNames.Menu));
             shopButton.onClick.AddListener(() => Leave(SceneNames.Shop));
+            abilitiesButton.onClick.AddListener(() =>
+            {
+                AbilitiesController.ReturnTo = SceneNames.LevelSelect;
+                Leave(SceneNames.Abilities);
+            });
+            for (int i = 0; i < starImages.Length; i++)
+                if (starImages[i] != null && !Stars.Has(i / Stars.PerLevel + 1, i % Stars.PerLevel))
+                    starImages[i].color = new Color(1f, 1f, 1f, 0.18f);
             walletLabel.text = $"// cartera: {Cosmetics.Wallet} bits";
         }
 

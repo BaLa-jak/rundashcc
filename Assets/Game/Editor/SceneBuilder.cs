@@ -19,7 +19,7 @@ namespace RunDashC.EditorTools
         public const string SceneDir = "Assets/Game/Scenes";
         public const string VolumePath = "Assets/Game/Settings/RunDashVolume.asset";
 
-        static readonly string[] Order = { SceneNames.Menu, SceneNames.LevelSelect, SceneNames.Game, SceneNames.GameOver, SceneNames.Help, SceneNames.Shop };
+        static readonly string[] Order = { SceneNames.Menu, SceneNames.LevelSelect, SceneNames.Game, SceneNames.GameOver, SceneNames.Help, SceneNames.Shop, SceneNames.Abilities };
 
         [MenuItem("RunDashC/Construir escenas")]
         public static void BuildAll()
@@ -32,6 +32,7 @@ namespace RunDashC.EditorTools
             Run(SceneNames.GameOver, GameOverSceneBuilder.Build);
             Run(SceneNames.Help, HelpSceneBuilder.Build);
             Run(SceneNames.Shop, ShopSceneBuilder.Build);
+            Run(SceneNames.Abilities, AbilitiesSceneBuilder.Build);
 
             EditorBuildSettings.scenes = Order
                 .Select(n => new EditorBuildSettingsScene(ScenePath(n), true))

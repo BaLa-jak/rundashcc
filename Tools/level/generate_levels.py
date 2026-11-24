@@ -17,6 +17,7 @@ import sys
 from pathlib import Path
 
 import check_level
+import place_stars
 import simulate
 
 ROWS = 12
@@ -308,6 +309,7 @@ def main():
             ok = False
             continue
         (OUT / f"nivel{level}.txt").write_text(text, encoding="utf-8")
+    ok &= place_stars.run([OUT / f"nivel{level}.txt" for level in LEVELS])  # las estrellas van encima del nivel ya validado
     sys.exit(0 if ok else 1)
 
 

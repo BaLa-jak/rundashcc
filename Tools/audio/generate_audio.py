@@ -212,6 +212,14 @@ def sfx_portal(b):
     add(b, 0.3, 0.05, SR, wave="noise", vol=0.15, a=0.001, d=0.2, s=0.0, r=0.2, lp=8000)
 
 
+def sfx_star(b):
+    """Estrella: arpegio mayor brillante (Do-Mi-Sol-Do) con brillo de ruido al final."""
+    for i, n in enumerate(("C5", "E5", "G5", "C6", "E6")):
+        add(b, i * 0.07, 0.22, hz(n), wave="square", duty=0.25, vol=0.28, a=0.005, d=0.1, s=0.5, r=0.1)
+        add(b, i * 0.07, 0.22, hz(n) * 2, wave="tri", vol=0.18, a=0.005, d=0.1, s=0.4, r=0.1)
+    add(b, 0.35, 0.05, SR, wave="noise", vol=0.08, a=0.001, d=0.3, s=0.0, r=0.3, lp=9000)
+
+
 # ---------------------------------------------------------------- Música
 CHORD = {  # bajo, notas del acorde
     "Am": ("A2", ("A3", "C4", "E4")), "F": ("F2", ("F3", "A3", "C4")), "C": ("C3", ("C4", "E4", "G4")),
@@ -415,6 +423,9 @@ def main():
     save("sfx_portal", portal, -3)
     prod, prod_lead = music_produccion()
     save("music_produccion", prod, -1)
+    star = [0.0] * round(0.9 * SR)
+    sfx_star(star)
+    save("sfx_star", star, -3)
 
     # self-check
     for bars in (mel, lead, shop_lead, prod_lead):
@@ -425,7 +436,8 @@ def main():
     expected["music_shop"] = (20.0, 20.0)
     expected["sfx_portal"] = (0.8, 0.8)
     expected["music_produccion"] = (16.0, 16.0)
-    assert len(expected) == 21
+    expected["sfx_star"] = (0.9, 0.9)
+    assert len(expected) == 22
     for name, (lo, hi) in expected.items():
         path = OUT / f"{name}.wav"
         assert path.exists(), path

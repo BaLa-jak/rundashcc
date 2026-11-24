@@ -12,7 +12,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ```
 Tools/unity.sh compile   # import + compile; prints "error CS" lines
-Tools/unity.sh scenes    # regenerate the 6 scenes + Build Settings (RunDashC.EditorTools.SceneBuilder.BuildAll)
+Tools/unity.sh scenes    # regenerate the 7 scenes + Build Settings (RunDashC.EditorTools.SceneBuilder.BuildAll)
 Tools/unity.sh test      # PlayMode tests (Assets/Game/Tests/SmokeTests.cs); results in Logs/test-results.xml
 ```
 
@@ -30,6 +30,9 @@ Asset generators (Python). Use plain `python3`, not `-I`: PIL lives in the user 
     - Asserts: every `D` ends (`PROD_SECONDS` × speed) before the goal, and `V` portals come in pairs.
   - It takes about 2–3 minutes.
 - `python3 Tools/level/simulate.py [ruta]`: replicates `CamaradaController`/`RunTuning` physics and checks each level can be cleared without hits (input every 60 ms, hazards +0.1 u, 8 phases for moving hazards). Keep its constants in sync with `RunTuning` and the hazard colliders.
+- `python3 Tools/level/place_stars.py [ruta]`: puts the 3 hidden stars `E` in every `nivel*.txt` (idempotent, deterministic per level, ~6 min for all; `generate_levels.py` calls it at the end).
+  - One star per third of the level, in a different kind of spot each: high (needs a double jump at the apex), over a pit, or next to a hazard.
+  - `simulate.reach` checks each star **without abilities**: it must be touchable in all phases without hits, Camarada must survive to the next checkpoint, and at most 25% of the routes may touch it.
 - `python3 Tools/level/check_level.py`: validates every `nivel*.txt` against the jump/gap rules (double jump counts as taught from level 2).
 
 ## Architecture
@@ -53,6 +56,15 @@ All game code lives in `Assets/Game/`.
 - `SceneFlow` handles navigation with a fade. **Pause = the `Help` scene loaded additively over `Game` with `timeScale = 0`.**
   - `Resume()` unloads Help.
   - Readers of the Pause action must ignore it when `Time.frameCount == SceneFlow.ResumedFrame`.
+- `Stars` keeps the hidden stars as a bitmask per level in `rdc.star<N>` (index = order by column). They are saved on pickup and fire `Collected(level, index, totalBefore)`.
+  - `Abilities` is a table (`All`, sorted by stars needed, ids = icons `hab_<id>`). There is no state of its own: `Has(a)` = `Stars.Total >= a.Stars`.
+  - Effects:
+    - triple jump and dash: `CamaradaController`; dash = hold Jump `DashHold` 0.4 s, which also makes `RunManager.IsInvulnerable` true;
+    - extra life: `GameSession.MaxLives` is a property;
+    - exclusive crown: `Cosmetics.Corona`, toggled in the Habilidades scene;
+    - magnet and overclock: `BitPickup`;
+    - try/catch shield and hot reload: `RunManager`;
+    - root and sudo dash: `BugEnemy`.
 - `Cosmetics` is the shop: catalog (`All`, 4 slots × 5, prices by column), persistent wallet `rdc.wallet` (every `GameSession.AddBits` also adds to it), `rdc.own.<id>`, `rdc.eq.<slot>`. Each item has a shop icon `cos_<id>` and a worn layer `wear_<id>`: same pixel size and center as `camarada.png` (symmetric padding), so `CamaradaFx` and the shop preview just overlay it at (0,0), scale 1.
 - `AudioManager.Play(Sfx)` / `PlayMusic(Music)` load `Resources/Audio/sfx_<snake_case>` and `music_<name>`.
 - `RunTuning` holds the physics constants that the level design depends on.
@@ -62,7 +74,9 @@ All game code lives in `Assets/Game/`.
 - `Niveles` → INFINITO → `GameSession.StartLevel(EndlessLevel)` → `Game` in endless mode (`IsEndless`).
   - `LevelBuilder.StreamTo` appends random chunks of the current tier (`LevelData.Append`, world-x cells so `BugEnemy` still works) and destroys those behind.
   - The tier rises every 2 chunks. After the last tier, speed keeps going ×1.03 per chunk without simulation.
+  - Every 3 random chunks, `AppendChunk` inserts a flat portal chunk (`LevelBuilder.PortalChunk`: 4 columns, a random `V` or `D`, then 12 columns). It has the previous chunk's speed and tier and doesn't count toward the tier. Endless always builds the `prod` skin.
   - No goal: the score is `GameSession.Distance` (record `rdc.inf.best`). Bits work as usual. Losing all lives → `GameOver`.
+- `Menu`/`Niveles` → HABILIDADES → `Habilidades` (`AbilitiesController`; VOLVER goes back to `AbilitiesController.ReturnTo`). The pause screen and this scene list the abilities with `UI/AbilityList`, and locked ones show `??`. The HUD bottom bar (`Hud/HudAbilities`) shows the level's stars and the unlocked icons.
 - `Niveles` → TIENDA → `Tienda` (`ShopController`, music `Music.Shop`; click = buy+equip, or equip/unequip if owned) → VOLVER → `Niveles`.
 - Pause (`Help`): REANUDAR or SALIR → `Niveles`.
 - 0 lives → `GameOver`. REANUDAR = `RetryLevel`; SALIR → `Niveles`.
@@ -70,7 +84,7 @@ All game code lives in `Assets/Game/`.
 
 **Levels are text files.** The format is documented in `Core/LevelData.cs`:
 - 12 rows between `map`/`end`; the bottom row is y=0; 1 char = 1 unit.
-- Legend: `= ^ B S s Z z * C F P V D`. `V` is the blue portal (world upside down) and `D` the purple one (production dimension).
+- Legend: `= ^ B S s Z z * C F P V D E`. `V` is the blue portal (world upside down), `D` the purple one (production dimension) and `E` a hidden star (`StarPickup`). Don't place `E` by hand: use `place_stars.py`.
 - `hint <col> <y> <text>` places in-world text.
 - At runtime `Gameplay/LevelBuilder.cs` turns the map into objects. The camera y is fixed so rows 0–11 fill the screen.
 

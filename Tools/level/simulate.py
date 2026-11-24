@@ -33,6 +33,7 @@ OFFSETS = [i * 0.5 for i in range(8)]  # fases de sierras (periodo π s) y /0 m�
 SPIKE = (0.375, -0.5, -0.08)   # medio ancho, y0, y1  (SpikesHazard: 0.75x0.42 apoyado abajo)
 BUG = (0.375, -0.475, 0.075)   # BugEnemy: 0.75x0.55 con offset -0.2
 SAW_R, DIV_R = 0.6, 0.42
+STAR_R = 0.35                  # StarPickup: radio 0.4, menos un poco para no contar roces dudosos
 
 
 def box_hits_box(px0, px1, py0, py1, bx0, bx1, by0, by1):
@@ -212,6 +213,58 @@ def solve(text, level):
     return True, finish
 
 
+def phase_runs(text, level):
+    """Una corrida por fase con una foto de los estados al llegar a cada columna (para probar estrellas rápido).
+    Devuelve (world, speed, {fase: {col: snapshot}}). Si una fase muere, sus fotos llegan hasta ahí."""
+    world = World.from_text(text)
+    speed = speed_of(text, level)
+    finish = world.find("F")[0]
+    snaps = {}
+    for off in OFFSETS:
+        run, table = Run(world, speed, off), {}
+        col = math.floor(run.x)
+        while run.x < finish + 0.5:
+            while col <= run.x:
+                table[col] = run.snapshot()
+                col += 1
+            if not run.step():
+                break
+        snaps[off] = table
+    return world, speed, snaps
+
+
+def reach(world, speed, snaps, cell, until_x):
+    """¿Se puede tocar la estrella de `cell` sin golpes en TODAS las fases y seguir vivo hasta until_x?
+    Devuelve (ok, facilidad): facilidad = máxima fracción de estados vivos que la tocan en un tick (1 = trivial)."""
+    cx, cy = cell[0] + 0.5, cell[1] + 0.5
+    easy = 0.0
+    for off, table in snaps.items():
+        start = math.floor(cx - 2)
+        if start not in table:
+            return False, 0.0
+        run = Run(world, speed, off)
+        run.restore(table[start])
+        got = None
+        while run.x < cx + 1.5 and run.step():
+            if got is not None:
+                got.step()
+            x = run.x
+            touch = [st for st in run.states
+                     if box_hits_circle(x - HALF_W, x + HALF_W, st[0] - HALF_H, st[0] + HALF_H, cx, cy, STAR_R)]
+            if not touch:
+                continue
+            easy = max(easy, len(touch) / len(run.states))
+            if got is None:
+                got = Run(world, speed, off)
+                got.restore(run.snapshot())
+                got.states = touch
+            else:
+                got.states += touch
+        if got is None or not got.states or not got.advance_to(until_x):
+            return False, easy
+    return True, easy
+
+
 def _selftest():
     def level(ground):
         return "map\n" + "\n" * 9 + "  P" + " " * 40 + "F\n" + ground + "\n" + ground + "\nend\n"
@@ -220,6 +273,9 @@ def _selftest():
     assert not solve(level("=" * 20 + " " * 14 + "=" * 30), 1)[0], "un hueco de 14 no se puede"
     spikes = level(ok).replace("  P" + " " * 40, "  P" + " " * 22 + "^" * 12 + " " * 6)
     assert not solve(spikes, 1)[0], "12 púas seguidas no se pueden saltar"
+    world, speed, snaps = phase_runs(level(ok), 1)
+    assert reach(world, speed, snaps, (25, 5), 40)[0], "estrella a 3 del piso: se alcanza"
+    assert not reach(world, speed, snaps, (25, 10), 40)[0], "estrella a 8 del piso: imposible"
 
 
 def main():

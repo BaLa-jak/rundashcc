@@ -4,7 +4,7 @@ using UnityEngine.UI;
 
 namespace RunDashC
 {
-    /// <summary>Menú principal: nombre del jugador, INICIAR (→ selector de niveles) / SALIR, récord y música.</summary>
+    /// <summary>Menú principal: nombre del jugador, INICIAR (→ selector de niveles) / HABILIDADES / SALIR, récord, estrellas y música.</summary>
     public class MenuController : MonoBehaviour
     {
         public InputField nameInput;
@@ -12,6 +12,8 @@ namespace RunDashC
         public Text recordText;
         public Button startButton;
         public Button quitButton;
+        public Button abilitiesButton;
+        public Text starsText;
         public Button closeButton;
 
         bool started;
@@ -27,9 +29,11 @@ namespace RunDashC
 
             startButton.onClick.AddListener(StartGame);
             quitButton.onClick.AddListener(SceneFlow.Quit);
+            abilitiesButton.onClick.AddListener(OpenAbilities);
             if (closeButton != null) closeButton.onClick.AddListener(SceneFlow.Quit);
 
             recordText.text = $"// record: {GameSession.BestBits} bits";
+            starsText.text = $"// estrellas: {Stars.Total}/{Stars.Max}   habilidades: {Abilities.UnlockedCount(Stars.Total)}/{Abilities.All.Length}";
             ShowPlayer(nameInput.text);
         }
 
@@ -57,6 +61,14 @@ namespace RunDashC
         }
 
         void ShowPlayer(string value) => playerLabel.text = "JUGADOR: " + GameSession.SanitizeName(value);
+
+        void OpenAbilities()
+        {
+            if (started) return;
+            started = true;
+            AbilitiesController.ReturnTo = SceneNames.Menu;
+            SceneFlow.Load(SceneNames.Abilities);
+        }
 
         void StartGame()
         {

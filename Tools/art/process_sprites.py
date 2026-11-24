@@ -6,7 +6,7 @@ Uso: python3 Tools/art/process_sprites.py   (necesita Pillow; no modifica los JP
 import math
 from pathlib import Path
 
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageFilter
 
 ROOT = Path(__file__).resolve().parents[2]
 SRC = ROOT / "Assets"
@@ -242,6 +242,15 @@ HAT_TPL = {  # de perfil; la punta del mago cae hacia atrás
         "ODDDDDDDDDDDDDDDO",
         ".OOOOOOOOOOOOOOO.",
     ],
+    "corona": [  # exclusiva: se gana con 4 estrellas (no está en la tienda); gema cian como la estrella
+        ".O...O...O.",
+        "OMO.OMO.OMO",
+        "OMMOMMMOMMO",
+        "OMMMMRMMMMO",
+        "OMMMMMMMMMO",
+        "ODDDDDDDDDO",
+        "OOOOOOOOOOO",
+    ],
     "copa": [
         "..OOOOOOOOOO..",
         "..OLMMMMMMMO..",
@@ -301,6 +310,7 @@ HAT_TPL = {  # de perfil; la punta del mago cae hacia atrás
 OUTLINE = (26, 15, 36)
 WEAR_PAL = {  # colores tomados de cada icono
     "gorra": dict(M=(210, 40, 45), L=(240, 110, 110), D=(150, 20, 35), A=(235, 235, 235)),
+    "corona": dict(M=(245, 200, 50), D=(200, 135, 20), R=(60, 220, 245)),
     "copa": dict(M=(55, 55, 65), L=(95, 95, 110), D=(40, 40, 48), A=(210, 35, 45)),
     "pirata": dict(M=(110, 65, 35), T=(230, 180, 60), W=(240, 240, 240)),
     "mago": dict(M=(40, 55, 130), A=(240, 200, 40)),
@@ -373,7 +383,7 @@ def wear_layers(rat_png, icons):
         layer = Image.new("RGBA", size, (0, 0, 0, 0))
         if cid in COS_ROWS["camisetas"][2]:
             layer.alpha_composite(shirt_layer(rat, icon), (off, off))
-        elif cid in COS_ROWS["sombreros"][2]:
+        elif cid in HAT_TPL:
             hat = paint(HAT_TPL[cid], WEAR_PAL[cid])
             layer.alpha_composite(hat, (off + HAT["cx"] - hat.width // 2, off + HAT["bottom"] - hat.height))
         elif cid in COS_ROWS["guantes"][2]:
@@ -472,7 +482,113 @@ def produccion():
     d.ellipse((0, 0, 63, 47), fill=(60, 170, 80, 255))
     d.ellipse((6, 3, 40, 30), fill=(95, 205, 105, 255))
     s["prod_colina"] = img
+    img, d = _px((16, 16))  # estrella dorada
+    pts = [(7.5 + (7.5 if i % 2 == 0 else 3.2) * math.sin(math.pi * i / 5), 8 - (7.5 if i % 2 == 0 else 3.2) * math.cos(math.pi * i / 5)) for i in range(10)]
+    d.polygon(pts, fill=(214, 150, 25, 255))
+    d.polygon([(7.5 + (x - 7.5) * 0.7, 8.5 + (y - 8) * 0.7) for x, y in pts], fill=(255, 215, 60, 255))
+    d.point([(6, 5), (7, 5)], fill=(255, 255, 230, 255))
+    s["prod_estrella"] = img
     return {n: i.resize((i.width * PROD_SCALE, i.height * PROD_SCALE), Image.NEAREST) for n, i in s.items()}
+
+
+# Estrella (Assets/estrella.png, la imagen de referencia): se quitan las líneas de velocidad y el fondo,
+# pero los ojos negros (encerrados por la estrella) quedan opacos.
+STAR_PX = 128
+
+
+def estrella():
+    src = Image.open(SRC / "estrella.png").convert("RGB").resize((256, 256), Image.LANCZOS)
+    w, h = src.size
+    soft = color_to_alpha(src)
+    solid = src.convert("L").point(lambda v: 255 if v > 45 else 0)
+    seed = next((x, y) for y in range(h // 2, h) for x in range(w // 2, w) if solid.getpixel((x, y)))
+    ImageDraw.floodfill(solid, seed, 200)                       # 200 = cuerpo de la estrella
+    star = solid.point(lambda v: 255 if v == 200 else 0)
+    outside = star.copy()
+    ImageDraw.floodfill(outside, (0, 0), 100)                   # 100 = afuera; 0 que queda = huecos (ojos)
+    near = star.filter(ImageFilter.MaxFilter(13))               # halo de 6 px alrededor del cuerpo
+    out = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+    o, sp, sa, op, nr = out.load(), src.load(), soft.load(), outside.load(), near.load()
+    for y in range(h):
+        for x in range(w):
+            if op[x, y] != 100:
+                o[x, y] = sp[x, y] + (255,)
+            elif nr[x, y]:
+                o[x, y] = sa[x, y]
+    out = out.crop(out.getbbox())
+    k = STAR_PX / max(out.size)
+    return pad(out.resize((round(out.width * k), round(out.height * k)), Image.LANCZOS), MARGIN)
+
+
+# Iconos de habilidades: plantillas 16x16, neón como la estrella. Mismo orden e ids que Abilities.cs.
+HAB_PAL = dict(M=(40, 220, 240), L=(200, 250, 255), D=(25, 90, 170), A=(250, 210, 60), R=(240, 60, 80))
+HAB_SCALE = 6
+_CHEV = ["....MM....MM....", ".....MM..MM.....", "......LMML......", ".......LL......."]
+HAB_TPL = {
+    "triple_salto": ["................"] + (_CHEV[::-1]) * 3 + ["................", "...DDDDDDDDDD...", "................"],
+    "dash": ["................", ".........M......", ".........MM.....", "DDD......MMM....", ".........MMMM...",
+             "..LLLLLLLMMMMM..", "..LLLLLLLMMMMMM.", "..LLLLLLLMMMMMMM", "..LLLLLLLMMMMMM.", "..LLLLLLLMMMMM..",
+             ".........MMMM...", "DDD......MMM....", ".........MM.....", ".........M......", "................",
+             "................"],
+    "vida_extra": ["..........A..AA.", ".........AAA..A.", "..........A...A.", "..RRR...RRR..AAA",
+                   ".RRRRR.RRRRR....", "RRLLRRRRRRRRR...", "RLLRRRRRRRRRR...", "RRRRRRRRRRRRR...",
+                   ".RRRRRRRRRRR....", "..RRRRRRRRR.....", "...RRRRRRR......", "....RRRRR.......",
+                   ".....RRR........", "......R.........", "................", "................"],
+    "corona": ["................", ".......MM.......", "......MMMM......", "....MMMMMMMM....", ".....MMMMMM.....",
+               ".....MM..MM.....", "................", "..A....AA....A..", "..AA..AAAA..AA..", "..AAAAAAAAAAAA..",
+               "..AALAARRAALAA..", "..AAAAAAAAAAAA..", "..DDDDDDDDDDDD..", "................", "................",
+               "................"],
+    "iman": ["................", ".RRR........RRR.", ".RRR........RRR.", ".MMM.L..LLL.MMM.", ".MMMLL..L.L.MMM.",
+             ".MMM.L..L.L.MMM.", ".MMM.L..LLL.MMM.", ".MMM........MMM.", ".MMMM......MMMM.", "..MMMM....MMMM..",
+             "...MMMMMMMMMM...", "....MMMMMMMM....", "................", "................", "................",
+             "................"],
+    "try_catch": ["................", ".MMMMMMMMMMMMMM.", ".MDDDDDDDDDDDDM.", ".MDDDLDDDDLDDDM.", ".MDDLDDDDDDLDDM.",
+                  ".MDDLDDDDDDLDDM.", ".MDLDDDDDDDDLDM.", ".MDDLDDDDDDLDDM.", ".MDDLDDDDDDLDDM.", ".MDDDLDDDDLDDDM.",
+                  "..MDDDDDDDDDDM..", "...MDDDDDDDDM...", "....MDDDDDDM....", ".....MDDDDM.....", "......MMMM......",
+                  "................"],
+    "overclock": ["...M..M..M..M...", "...M..M..M..M...", "..MMMMMMMMMMMM..", "..MDDDDDDDDDDM..", "..MDDDDDDDDDDM..",
+                  "MMMDDDDDAAADDMMM", "..MDADADDDADDM..", "..MDDADDAAADDM..", "MMMDADADADDDDMMM", "..MDDDDDAAADDM..",
+                  "..MDDDDDDDDDDM..", "..MMMMMMMMMMMM..", "...M..M..M..M...", "...M..M..M..M...", "................",
+                  "................"],
+    "hot_reload": ["................", ".....MMMMMM.....", "...MM......MM.M.", "..M..........MM.", ".M.........MMMM.",
+                   ".M..............", "M....RR.RR......", "M...RRRRRRR....M", "M...RRRRRRR....M", ".....RRRRR.....M",
+                   "......RRR.....M.", ".MMMM..R......M.", ".MM..........M..", ".M.MM......MM...", ".....MMMMMM.....",
+                   "................"],
+    "sudo_dash": [".A.A............", "AAAAA...........", ".A.A............", "AAAAA...........", ".A.A............",
+                  "....M.....M.....", "....MM....MM....", "....MLM...MLM...", "....MLLM..MLLM..", "DD..MLLLM.MLLLM.",
+                  "....MLLM..MLLM..", "....MLM...MLM...", "....MM....MM....", "....M.....M.....", "................",
+                  "................"],
+    "root": [".A.A............", "AAAAA...........", ".A.A............", "AAAAA...........", ".A.A............",
+             "................", "......R..R......", ".......RR.......", ".....RRRRRR.....", "...R.RRRRRR.R...",
+             "....RRRRRRRR....", "...R.RRRRRR.R...", ".....RRRRRR.....", "...R..RRRR..R...", "................",
+             "................"],
+}
+HAB_PAL_OVERRIDE = {"corona": dict(M=(60, 230, 250), A=(250, 200, 50), D=(200, 135, 20), R=(240, 60, 80))}
+
+
+def habilidades():
+    out = {}
+    for hid, rows in HAB_TPL.items():
+        assert len(rows) == 16 and all(len(r) == 16 for r in rows), f"hab_{hid}: plantilla no es 16x16"
+        img = Image.new("RGBA", (18, 18), (0, 0, 0, 0))
+        img.alpha_composite(paint(rows, {**HAB_PAL, **HAB_PAL_OVERRIDE.get(hid, {})}), (1, 1))
+        if hid == "root":  # bug tachado
+            d = ImageDraw.Draw(img)
+            d.line((3, 7, 14, 15), fill=HAB_PAL["L"] + (255,))
+            d.line((14, 7, 3, 15), fill=HAB_PAL["L"] + (255,))
+        # contorno oscuro de 1 px para que se lea sobre cualquier fondo
+        ring = img.getchannel("A").filter(ImageFilter.MaxFilter(3))
+        base = Image.new("RGBA", img.size, (4, 22, 40, 0))
+        base.putalpha(ring)
+        base.alpha_composite(img)
+        out["hab_" + hid] = base.resize((18 * HAB_SCALE, 18 * HAB_SCALE), Image.NEAREST)
+    return out
+
+
+def corona_icono():
+    """Icono de tienda/habilidades de la corona exclusiva: la plantilla del sombrero, grande."""
+    hat = paint(HAT_TPL["corona"], WEAR_PAL["corona"])
+    return {"cos_corona": pad(hat.resize((hat.width * 7, hat.height * 7), Image.NEAREST), MARGIN)}
 
 
 def main():
@@ -487,6 +603,9 @@ def main():
         **cosmeticos(),
         **portales(),
         **produccion(),
+        "estrella": estrella(),
+        **habilidades(),
+        **corona_icono(),
     }
     sprites.update(wear_layers(sprites["camarada"], {n: i for n, i in sprites.items() if n.startswith("cos_")}))
     for name, img in sprites.items():
@@ -505,10 +624,10 @@ def main():
             a = img.getchannel("A")
             assert a.getpixel((0, 0)) == 0 and a.getpixel((img.width - 1, img.height - 1)) == 0, f"{name}: esquinas opacas"
             assert 40 <= max(img.size) <= 130, f"{name}: tamaño {img.size}"
-    assert sum(n.startswith("cos_") for n in sprites) == 20
+    assert sum(n.startswith("cos_") for n in sprites) == 21  # 20 de la tienda + corona
     wear = [i for n, i in sprites.items() if n.startswith("wear_")]
     pad = 2 * PIXEL_SCALE * WEAR_PAD
-    assert len(wear) == 20 and all(i.size == (sprites["camarada"].width + pad, sprites["camarada"].height + pad) for i in wear)
+    assert len(wear) == 21 and all(i.size == (sprites["camarada"].width + pad, sprites["camarada"].height + pad) for i in wear)
     assert all(i.getbbox() for i in wear), "capa vacía"
     assert sprites["sierra"].size == (160, 160)
     for name in ("portal_azul", "portal_morado"):
@@ -516,6 +635,11 @@ def main():
         assert img.size == front.size and img.height == PORTAL_H + 2 * MARGIN, name
         assert front.getchannel("A").getbbox()[0] >= round(img.width * PORTAL_FRONT), f"{name}: frente tapa el centro"
     assert all(sprites[n].getbbox() for n in sprites if n.startswith("prod_")), "sprite de producción vacío"
+    star = sprites["estrella"]
+    sa = star.getchannel("A")
+    assert sa.getpixel((0, 0)) == 0 and sa.getpixel((star.width - 1, star.height - 1)) == 0, "estrella: esquinas opacas"
+    assert sa.getpixel((star.width // 2, star.height // 2)) == 255, "estrella: el centro debe ser opaco"
+    assert sum(n.startswith("hab_") for n in sprites) == 10
     assert sprites["fondo"].mode == "RGB" and sprites["fondo"].size == (1024, 572)
 
 

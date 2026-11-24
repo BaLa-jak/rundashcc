@@ -59,6 +59,12 @@ namespace RunDashC.EditorTools
                 TextAnchor.LowerLeft, Vector2.zero, Vector2.zero, new Vector2(48, 118), new Vector2(800, 50));
             hud.lifeLostText.gameObject.SetActive(false);
 
+            // Centro de la franja: estrellas del nivel + iconos de habilidades (los arma HudAbilities en runtime).
+            var abilities = new GameObject("Abilities", typeof(RectTransform)).GetComponent<RectTransform>();
+            abilities.SetParent(root, false);
+            AsciiUi.Place(abilities, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0, 55), Vector2.zero);
+            abilities.gameObject.AddComponent<HudAbilities>();
+
             hud.bitsText = Label(root, "Bits", "bits: 000   record: 000", 44, AsciiTheme.Green,
                 TextAnchor.LowerRight, Vector2.right, Vector2.right, new Vector2(-48, 30), new Vector2(1100, 70));
 

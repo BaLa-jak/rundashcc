@@ -52,6 +52,8 @@ namespace RunDashC.EditorTools
             const float rowTop = 80f, rowStep = 56f;
             float btnW = ("NIVEL 00".Length + 10) * UiKit.Cw(btnFs);
             var buttons = new Button[GameSession.LevelCount];
+            var starImages = new Image[GameSession.LevelCount * Stars.PerLevel];
+            var starSprite = SceneBuilder.LoadResource<Sprite>("Art/estrella");
             var rows = new Text[GameSession.LevelCount];
             Button endless = null;
             Text endlessRow = null;
@@ -65,15 +67,23 @@ namespace RunDashC.EditorTools
                 var row = UiKit.Label(root, inf ? "RowEndless" : $"Row{i + 1:00}", inf ? LevelSelectController.EndlessFile : LevelSelectController.Files[i], rowFs, AsciiTheme.White, TextAnchor.MiddleLeft, Center,
                     new Vector2(textLeft + 560f, y), new Vector2(1120f, rowFs * 1.3f));
                 if (inf) { endless = b; endlessRow = row; }
-                else { buttons[i] = b; rows[i] = row; }
+                else
+                {
+                    buttons[i] = b;
+                    rows[i] = row;
+                    for (int s = 0; s < Stars.PerLevel; s++) // estrellas del nivel al final de la fila (las colorea el controlador)
+                        starImages[i * Stars.PerLevel + s] = UiKit.SpriteImage(root, $"Star{i + 1:00}_{s}", starSprite, Center, new Vector2(650 + s * 46, y), new Vector2(42, 42));
+                }
             }
 
             // Tienda (con el icono SHOP pegado al botón para que haga el punch con él) y Volver.
-            var shop = AsciiButton.Create(root, "ShopButton", "TIENDA", 44, Center, new Vector2(-220, -380)).GetComponent<Button>();
+            var shop = AsciiButton.Create(root, "ShopButton", "TIENDA", 44, Center, new Vector2(-460, -380)).GetComponent<Button>();
             var shopIcon = UiKit.SpriteImage(shop.transform, "Icono", SceneBuilder.LoadResource<Sprite>("Art/tienda_icono"), Center, new Vector2(-190, 0), new Vector2(84, 74));
             if (shopIcon != null) shopIcon.raycastTarget = false;
-            var back = AsciiButton.Create(root, "BackButton", "VOLVER", 44, Center, new Vector2(220, -380)).GetComponent<Button>();
+            var abilities = AsciiButton.Create(root, "AbilitiesButton", "HABILIDADES", 44, Center, new Vector2(20, -380)).GetComponent<Button>();
+            var back = AsciiButton.Create(root, "BackButton", "VOLVER", 44, Center, new Vector2(470, -380)).GetComponent<Button>();
             shop.navigation = new Navigation { mode = Navigation.Mode.Automatic };
+            abilities.navigation = new Navigation { mode = Navigation.Mode.Automatic };
             back.navigation = new Navigation { mode = Navigation.Mode.Automatic };
             var walletLabel = UiKit.Label(root, "Wallet", "// cartera: 0 bits", 32, AsciiTheme.Yellow, TextAnchor.MiddleRight, Center, new Vector2(330, 135), new Vector2(900, 44));
             UiKit.Label(root, "Hint", "// [ESPACIO] saltar   [ESC] pausa   // el % es lo más lejos que llegaste", 28, AsciiTheme.GreenDim, TextAnchor.MiddleCenter, Center, new Vector2(0, -455), new Vector2(1500, 40));
@@ -88,6 +98,8 @@ namespace RunDashC.EditorTools
             ctrl.playerLabel = player;
             ctrl.backButton = back;
             ctrl.shopButton = shop;
+            ctrl.abilitiesButton = abilities;
+            ctrl.starImages = starImages;
             ctrl.walletLabel = walletLabel;
 
             SceneBuilder.Save(scene, SceneNames.LevelSelect);

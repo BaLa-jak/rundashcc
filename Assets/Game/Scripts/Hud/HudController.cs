@@ -47,6 +47,7 @@ namespace RunDashC
             RunEvents.LevelCompleted += OnLevelCompleted;
             RunEvents.PlayerDied += OnPlayerDied;
             WorldMode.Changed += OnWorldModeChanged;
+            Stars.Collected += OnStarCollected;
             wasFlipped = WorldMode.Flipped;
             wasProduction = WorldMode.Production;
 
@@ -75,6 +76,15 @@ namespace RunDashC
             RunEvents.LevelCompleted -= OnLevelCompleted;
             RunEvents.PlayerDied -= OnPlayerDied;
             WorldMode.Changed -= OnWorldModeChanged;
+            Stars.Collected -= OnStarCollected;
+        }
+
+        void OnStarCollected(int level, int index, int before)
+        {
+            var msg = $"> estrella {Stars.CountIn(level)}/{Stars.PerLevel} // total {before + 1}/{Stars.Max}";
+            foreach (var a in Abilities.All)
+                if (a.Stars == before + 1) msg = $"> habilidad desbloqueada: {a.Nombre}";
+            ShowToast(msg);
         }
 
         void Refresh()

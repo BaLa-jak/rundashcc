@@ -9,6 +9,7 @@ namespace RunDashC
     /// La celda (x, y) ocupa [x, x+1] × [y, y+1]; y = 0 es la fila de abajo.
     /// Infinito: encadena al azar tramos de Resources/Levels/Infinito/tNN_*.txt delante de Camarada (StreamTo);
     /// cada <see cref="PerTier"/> tramos sube un tier (más rápido y más enemigos/obstáculos).
+    /// Cada <see cref="PortalEvery"/> tramos intercala un tramo plano con un portal azul o morado al azar.
     /// </summary>
     public class LevelBuilder : MonoBehaviour
     {
@@ -16,17 +17,20 @@ namespace RunDashC
         const int PerTier = 2;              // = ENDLESS_PER_TIER de generate_levels.py
         const float Lookahead = 60f, KeepBehind = 20f;
         const float OverflowSpeedUp = 1.03f; // por tramo después del último tier
+        const int PortalEvery = 3;          // tramos al azar entre portales del infinito
+        const int PortalLead = 4, PortalClear = 12; // = PORTAL_LEAD / PORTAL_CLEAR de generate_levels.py
 
         class Chunk
         {
             public int Start, End, Tier;
             public float Speed;
+            public bool Portal;
             public Transform Root;
         }
 
         readonly List<List<TextAsset>> tiers = new List<List<TextAsset>>();
         readonly List<Chunk> chunks = new List<Chunk>();
-        int built, removed, lastPick = -1;
+        int built, removed, lastPick = -1, randomChunks, starIndex;
 
         public LevelData Data { get; private set; }
         /// <summary>Centro del collider de Camarada en la celda 'P'.</summary>
@@ -41,7 +45,7 @@ namespace RunDashC
             glitch = gameObject.AddComponent<CodeGlitch>();
             AsciiParticles.Warm();
             WorldMode.Reset(); // antes de armar las pieles: arrancan en modo código
-            WorldMode.HasProduction = false; // el infinito no tiene portales
+            WorldMode.HasProduction = GameSession.IsEndless; // el infinito intercala portales morados
 
             if (GameSession.IsEndless)
             {
@@ -113,7 +117,15 @@ namespace RunDashC
 
         void AppendChunk()
         {
-            int n = chunks.Count, tier = Mathf.Min(1 + n / PerTier, tiers.Count);
+            // Portal en suelo plano: los tramos empiezan y acaban planos a altura 2, así que no estorba a nadie.
+            if (randomChunks > 0 && randomChunks % PortalEvery == 0 && !chunks[chunks.Count - 1].Portal)
+            {
+                var prev = chunks[chunks.Count - 1];
+                int at = Data.Append(LevelData.Parse(PortalChunk(Random.value < 0.5f ? LevelData.PortalFlip : LevelData.PortalProduction)));
+                chunks.Add(new Chunk { Start = at, End = Data.Width, Tier = prev.Tier, Speed = prev.Speed, Portal = true });
+                return;
+            }
+            int n = randomChunks++, tier = Mathf.Min(1 + n / PerTier, tiers.Count);
             var pool = tiers[tier - 1];
             int pick = Random.Range(0, pool.Count);
             if (pool.Count > 1 && pick == lastPick) pick = (pick + 1) % pool.Count; // no repetir el mismo seguido
@@ -125,6 +137,15 @@ namespace RunDashC
             // que acaba la partida); si se siente injusto, generar más tiers en generate_levels.py.
             int overflow = Mathf.Max(0, n + 1 - tiers.Count * PerTier);
             chunks.Add(new Chunk { Start = start, End = Data.Width, Tier = tier, Speed = chunk.Speed * Mathf.Pow(OverflowSpeedUp, overflow) });
+        }
+
+        /// <summary>Tramo plano de altura 2: P, 4 columnas, el portal y 12 de respiro para la transición, F.</summary>
+        public static string PortalChunk(char portal)
+        {
+            int w = PortalLead + 1 + PortalClear;
+            var floor = new string(LevelData.Block, w);
+            var row = "P" + new string(' ', PortalLead - 1) + portal + new string(' ', PortalClear - 1) + "F";
+            return "map\n" + new string('\n', LevelData.Rows - 3) + row + "\n" + floor + "\n" + floor + "\nend\n";
         }
 
         /// <summary>Plataformas, peligros y bits de las columnas [x0, x1) bajo <paramref name="parent"/>.</summary>
@@ -163,6 +184,7 @@ namespace RunDashC
                 case LevelData.Checkpoint: Create<Checkpoint>("checkpoint", center, parent); break;
                 case LevelData.PortalFlip: Create<PortalGate>("portal_flip", center, parent).kind = PortalKind.Flip; break;
                 case LevelData.PortalProduction: Create<PortalGate>("portal_prod", center, parent).kind = PortalKind.Production; break;
+                case LevelData.Star: Create<StarPickup>("star", center, parent).index = starIndex++; break;
             }
         }
 

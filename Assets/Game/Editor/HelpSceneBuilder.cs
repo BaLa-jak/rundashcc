@@ -17,6 +17,7 @@ namespace RunDashC.EditorTools
             { "DOBLE SALTO ...", "salta otra vez en el aire" },
             { "SALTO LARGO ...", "mantén presionado" },
             { "PISAR BUG .....", "cae encima de un bug (+5 bits)" },
+            { "DASH ..........", "mantén [ESPACIO] (habilidad)" },
             { "PAUSA .........", "[ESC] [P] (START)" },
         };
 
@@ -35,16 +36,16 @@ namespace RunDashC.EditorTools
             AsciiUi.Place(window.rectTransform, Center, Vector2.zero, new Vector2(1720, 980));
             UiKit.Frame(root, "Frame", Vector2.zero, new Vector2(1720, 980), 28, AsciiTheme.Green);
 
-            UiKit.Label(root, "Logo", AsciiTheme.Logo, 36, AsciiTheme.Green, TextAnchor.MiddleCenter, Center, new Vector2(0, 345), new Vector2(58 * UiKit.Cw(36) + 20, 36 * 5 + 10));
-            UiKit.Label(root, "Pausa", "// PAUSA", 60, AsciiTheme.Green, TextAnchor.MiddleCenter, Center, new Vector2(0, 205), new Vector2(600, 70))
+            // Sin logo: el espacio es para la lista de habilidades.
+            UiKit.Label(root, "Pausa", "// PAUSA", 60, AsciiTheme.Green, TextAnchor.MiddleCenter, Center, new Vector2(0, 410), new Vector2(600, 70))
                 .gameObject.AddComponent<Blink>();
             const string sigstop = "> proceso suspendido (SIGSTOP)";
-            var sig = UiKit.LeftLabel(root, "Sigstop", sigstop, 32, AsciiTheme.White, -(sigstop.Length + 1) * UiKit.Cw(32) * 0.5f, 150)
+            var sig = UiKit.LeftLabel(root, "Sigstop", sigstop, 32, AsciiTheme.White, -(sigstop.Length + 1) * UiKit.Cw(32) * 0.5f, 355)
                 .gameObject.AddComponent<TypewriterText>();
             sig.delay = 0.15f;
 
             // Columna izquierda: controles con puntos guía.
-            const float colTop = 80f;
+            const float colTop = 285f;
             const float leftX = -800f, rightX = 20f;
             UiKit.LeftLabel(root, "ControlsTitle", "// CONTROLES", 34, AsciiTheme.Green, leftX, colTop);
             string white = AsciiTheme.ToHex(AsciiTheme.White), cyan = AsciiTheme.ToHex(AsciiTheme.Cyan), dots = AsciiTheme.ToHex(AsciiTheme.GreenDim);
@@ -66,11 +67,20 @@ namespace RunDashC.EditorTools
             LegendRow(root, 3, rightX, null, "^^^", AsciiTheme.Red, "púas");
             LegendRow(root, 4, rightX, null, "{1}", AsciiTheme.Cyan, "bit: recógelos");
 
-            var resume = AsciiButton.Create(root, "ResumeButton", "REANUDAR", 48, Center, new Vector2(-260, -345)).GetComponent<Button>();
-            var exit = AsciiButton.Create(root, "ExitButton", "SALIR", 48, Center, new Vector2(260, -345)).GetComponent<Button>();
+            // Habilidades (estrellas): icono + nombre + qué hace; las bloqueadas salen "??". Las arma AbilityList en runtime.
+            UiKit.LeftLabel(root, "AbilitiesTitle", "// HABILIDADES  (consigue estrellas ocultas en los niveles)", 34, AsciiTheme.Green, leftX, -45);
+            var list = new GameObject("Abilities", typeof(RectTransform)).GetComponent<RectTransform>();
+            list.SetParent(root, false);
+            AsciiUi.Place(list, Center, new Vector2(leftX, -78), Vector2.zero);
+            var abilities = list.gameObject.AddComponent<AbilityList>();
+            abilities.columnWidth = 820f;
+            abilities.rowStep = 52f;
+
+            var resume = AsciiButton.Create(root, "ResumeButton", "REANUDAR", 48, Center, new Vector2(-260, -405)).GetComponent<Button>();
+            var exit = AsciiButton.Create(root, "ExitButton", "SALIR", 48, Center, new Vector2(260, -405)).GetComponent<Button>();
             resume.navigation = new Navigation { mode = Navigation.Mode.Explicit, selectOnRight = exit };
             exit.navigation = new Navigation { mode = Navigation.Mode.Explicit, selectOnLeft = resume };
-            UiKit.Label(root, "Hint", "// [ESC] o [P] reanudan   SALIR vuelve a ./niveles", 28, AsciiTheme.GreenDim, TextAnchor.MiddleCenter, Center, new Vector2(0, -420), new Vector2(1200, 40));
+            UiKit.Label(root, "Hint", "// [ESC] o [P] reanudan   SALIR vuelve a ./niveles", 28, AsciiTheme.GreenDim, TextAnchor.MiddleCenter, Center, new Vector2(0, -458), new Vector2(1200, 40));
 
             var ctrl = canvas.gameObject.AddComponent<HelpController>();
             ctrl.resumeButton = resume;
@@ -82,7 +92,7 @@ namespace RunDashC.EditorTools
         /// <summary>Fila: [sprite] clave ...... descripción (^^^ y {1} no tienen sprite: la clave ya es el dibujo).</summary>
         static void LegendRow(Transform root, int i, float left, string spritePath, string key, Color keyColor, string desc)
         {
-            float y = 25f - i * 64f;
+            float y = 230f - i * 56f;
             var iconPos = new Vector2(left + 30, y);
             if (spritePath != null)
                 UiKit.SpriteImage(root, "Icon_" + key, SceneBuilder.LoadResource<Sprite>(spritePath), Center, iconPos, new Vector2(56, 56));

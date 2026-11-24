@@ -19,6 +19,7 @@ namespace RunDashC.Tests
         int savedWallet;
         readonly int[] savedOwn = new int[Cosmetics.All.Length];
         readonly string[] savedEquip = new string[Cosmetics.Slots.Length];
+        readonly int[] savedStars = new int[GameSession.LevelCount + 1];
 
         [OneTimeSetUp]
         public void SavePrefs()
@@ -32,6 +33,7 @@ namespace RunDashC.Tests
             savedWallet = Cosmetics.Wallet;
             for (int i = 0; i < Cosmetics.All.Length; i++) savedOwn[i] = PlayerPrefs.GetInt("rdc.own." + Cosmetics.All[i].Id, 0);
             for (int s = 0; s < savedEquip.Length; s++) savedEquip[s] = PlayerPrefs.GetString("rdc.eq." + (CosmeticSlot)s, "");
+            for (int n = 1; n <= GameSession.LevelCount; n++) savedStars[n] = PlayerPrefs.GetInt("rdc.star" + n, 0);
         }
 
         [OneTimeTearDown]
@@ -44,11 +46,96 @@ namespace RunDashC.Tests
             PlayerPrefs.SetInt("rdc.wallet", savedWallet);
             for (int i = 0; i < Cosmetics.All.Length; i++) PlayerPrefs.SetInt("rdc.own." + Cosmetics.All[i].Id, savedOwn[i]);
             for (int s = 0; s < savedEquip.Length; s++) PlayerPrefs.SetString("rdc.eq." + (CosmeticSlot)s, savedEquip[s]);
+            for (int n = 1; n <= GameSession.LevelCount; n++) PlayerPrefs.SetInt("rdc.star" + n, savedStars[n]);
             PlayerPrefs.Save();
         }
 
+        /// <summary>Cada test empieza sin estrellas (sin habilidades): 3 vidas, sin dash, etc.</summary>
         [SetUp]
-        public void ResetTime() => Time.timeScale = 1f;
+        public void ResetTimeAndStars()
+        {
+            Time.timeScale = 1f;
+            SetStars(0);
+        }
+
+        /// <summary>Las primeras <paramref name="n"/> estrellas del juego (nivel 1 primero).</summary>
+        static void SetStars(int n)
+        {
+            for (int level = 1; level <= GameSession.LevelCount; level++)
+            {
+                int k = Mathf.Clamp(n - (level - 1) * Stars.PerLevel, 0, Stars.PerLevel);
+                PlayerPrefs.SetInt("rdc.star" + level, (1 << k) - 1);
+            }
+        }
+
+        [Test]
+        public void EveryLevelHasThreeStars()
+        {
+            for (int n = 1; n <= GameSession.LevelCount; n++)
+            {
+                var level = LevelData.Load(n);
+                int count = 0;
+                for (int x = 0; x < level.Width; x++)
+                    for (int y = 0; y < LevelData.Rows; y++)
+                        if (level.At(x, y) == LevelData.Star) count++;
+                Assert.AreEqual(Stars.PerLevel, count, $"nivel{n}");
+            }
+        }
+
+        [Test]
+        public void AbilitiesTableIsSortedAndHasArt()
+        {
+            Assert.AreEqual(10, Abilities.All.Length);
+            for (int i = 0; i < Abilities.All.Length; i++)
+            {
+                var a = Abilities.All[i];
+                Assert.AreEqual(i, (int)a.Kind, a.Id);
+                if (i > 0) Assert.Greater(a.Stars, Abilities.All[i - 1].Stars, a.Id);
+                Assert.LessOrEqual(a.Stars, Stars.Max, a.Id);
+                Assert.IsNotNull(Resources.Load<Sprite>("Art/" + a.Icon), a.Icon);
+            }
+            foreach (var art in new[] { "estrella", "prod_estrella", "cos_corona", "wear_corona" })
+                Assert.IsNotNull(Resources.Load<Sprite>("Art/" + art), art);
+        }
+
+        [Test]
+        public void StarsUnlockAbilities()
+        {
+            Assert.AreEqual(0, Stars.Total);
+            Assert.AreEqual(GameSession.BaseLives, GameSession.MaxLives);
+            Assert.IsFalse(Cosmetics.Owns(Cosmetics.Corona));
+            Stars.Collect(2, 1);
+            Stars.Collect(2, 1); // repetida no cuenta
+            Assert.AreEqual(1, Stars.Total);
+            Assert.IsTrue(Stars.Has(2, 1) && !Stars.Has(2, 0));
+            Assert.IsTrue(Abilities.Has(Ability.TripleSalto) && !Abilities.Has(Ability.Dash));
+            SetStars(3);
+            Assert.AreEqual(GameSession.BaseLives + 1, GameSession.MaxLives);
+            SetStars(4);
+            Assert.IsTrue(Cosmetics.Owns(Cosmetics.Corona));
+            Assert.IsTrue(Cosmetics.Toggle(Cosmetics.Corona));
+            Assert.AreEqual("corona", Cosmetics.Equipped(CosmeticSlot.Sombrero)?.Id);
+            SetStars(Stars.Max);
+            Assert.AreEqual(Abilities.All.Length, Abilities.UnlockedCount(Stars.Total));
+        }
+
+        [UnityTest]
+        public IEnumerator DashIsInvulnerableAndTripleJumpUnlocks()
+        {
+            SetStars(2);
+            yield return StartRun();
+            var run = RunManager.Instance;
+            var player = run.player;
+            Assert.AreEqual(2, player.AirJumpsMax, "1 estrella = triple salto");
+            yield return new WaitForSeconds(0.5f); // pausa de reaparición
+            Assert.IsTrue(player.StartDash(), "con 2 estrellas el dash debe estar listo");
+            Assert.IsTrue(player.Dashing && run.IsInvulnerable);
+            Assert.IsFalse(player.StartDash(), "un dash por salto");
+            yield return new WaitForSeconds(0.6f);
+            Assert.IsFalse(player.Dashing);
+            Assert.IsFalse(run.IsInvulnerable);
+            Assert.AreEqual(GameSession.BaseLives, GameSession.Lives);
+        }
 
         [Test]
         public void Level1ParsesWithStartAndFinish()
@@ -146,7 +233,7 @@ namespace RunDashC.Tests
 
         [UnityTest]
         public IEnumerator SceneLoadsWithoutErrors(
-            [Values(SceneNames.Menu, SceneNames.LevelSelect, SceneNames.Game, SceneNames.GameOver, SceneNames.Help, SceneNames.Shop)] string scene)
+            [Values(SceneNames.Menu, SceneNames.LevelSelect, SceneNames.Game, SceneNames.GameOver, SceneNames.Help, SceneNames.Shop, SceneNames.Abilities)] string scene)
         {
             SceneManager.LoadScene(scene);
             yield return new WaitForSecondsRealtime(1.5f);
@@ -259,6 +346,13 @@ namespace RunDashC.Tests
                 tiers.Add(int.Parse(a.name.Substring(1, 2)));
             }
             for (int t = 1; t <= tiers.Count; t++) Assert.IsTrue(tiers.Contains(t), $"Falta el tier {t} del infinito");
+
+            foreach (var portal in new[] { LevelData.PortalFlip, LevelData.PortalProduction })
+            {
+                var pc = LevelData.Parse(LevelBuilder.PortalChunk(portal));
+                Assert.IsTrue(pc.Contains(portal) && pc.At(4, 2) == portal && pc.At(0, 1) == LevelData.Block, "tramo de portal mal armado");
+                Assert.AreEqual(pc.Width, pc.FinishCell.x + 1);
+            }
         }
 
         [Test]

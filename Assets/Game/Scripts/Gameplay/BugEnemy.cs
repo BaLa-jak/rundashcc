@@ -72,15 +72,17 @@ namespace RunDashC
         protected override void OnPlayer(CamaradaController player)
         {
             if (dead) return;
-            if (player.Velocity.y < 0f && player.FeetY > box.bounds.center.y) StartCoroutine(Squash(player));
+            if (player.Velocity.y < 0f && player.FeetY > box.bounds.center.y) StartCoroutine(Squash(player, true));
+            // ROOT: los bugs ya no dañan; SUDO DASH: el dash los atraviesa aplastándolos.
+            else if (Abilities.Has(Ability.Root) || (player.Dashing && Abilities.Has(Ability.SudoDash))) StartCoroutine(Squash(player, false));
             else base.OnPlayer(player);
         }
 
-        IEnumerator Squash(CamaradaController player)
+        IEnumerator Squash(CamaradaController player, bool bounce)
         {
             dead = true;
             box.enabled = false;
-            player.Bounce();
+            if (bounce) player.Bounce();
             AudioManager.Play(Sfx.Stomp, 0.05f);
             GameSession.AddBits(RunTuning.StompBits);
 

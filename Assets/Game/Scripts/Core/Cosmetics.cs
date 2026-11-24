@@ -50,6 +50,9 @@ namespace RunDashC
             (CosmeticSlot.Guantes, new[] { ("box_rojo", "GUANTES DE BOX"), ("box_oro", "GUANTES DE ORO"), ("sin_dedos", "GUANTES SIN DEDOS"), ("blancos", "GUANTES CARTOON"), ("cyber", "GUANTES CYBER") }),
             (CosmeticSlot.Tenis, new[] { ("rojos", "TENIS ROJOS"), ("turbo", "TENIS TURBO"), ("camuflaje", "TENIS CAMUFLAJE"), ("morados", "TENIS MORADOS"), ("alados", "TENIS ALADOS") }));
 
+        /// <summary>Fuera de la tienda: se gana con 4 estrellas (habilidad CORONA ESTELAR) y se pone en la escena Habilidades.</summary>
+        public static readonly Cosmetic Corona = new Cosmetic("corona", "CORONA ESTELAR", CosmeticSlot.Sombrero, 0);
+
         public static event Action Changed;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
@@ -74,7 +77,8 @@ namespace RunDashC
             Changed?.Invoke();
         }
 
-        public static bool Owns(Cosmetic c) => PlayerPrefs.GetInt(PrefOwn + c.Id, 0) == 1;
+        public static bool Owns(Cosmetic c) =>
+            c.Id == Corona.Id ? Abilities.Has(Ability.Corona) : PlayerPrefs.GetInt(PrefOwn + c.Id, 0) == 1;
 
         public static bool IsEquipped(Cosmetic c) => EquippedId(c.Slot) == c.Id;
 
@@ -86,6 +90,7 @@ namespace RunDashC
             var id = EquippedId(slot);
             foreach (var c in All)
                 if (c.Id == id) return c;
+            if (Corona.Slot == slot && Corona.Id == id && Owns(Corona)) return Corona;
             return null;
         }
 

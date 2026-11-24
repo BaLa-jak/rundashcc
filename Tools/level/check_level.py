@@ -10,7 +10,7 @@ import sys
 from pathlib import Path
 
 ROWS = 12
-LEGEND = set("=^BSsZz*CFPVD ")
+LEGEND = set("=^BSsZz*CFPVDE ")  # E = estrella (la pone place_stars.py)
 MAX_GAP, MAX_GAP_DJ = 4, 7    # RunTuning.MaxGapSingleJump / MaxGapDoubleJump
 MAX_STEP, MAX_STEP_DJ = 2, 3  # RunTuning.MaxStepUp; +3 solo con doble salto ya enseñado
 HAZARDS = set("^BSsZz")
@@ -180,7 +180,7 @@ def check(text, dj_taught=False):
     count = lambda cs: sum(len(cells[c]) for c in cs)
     rep.append(f"bits {count('*')} · checkpoints {[x for x, _ in sorted(cells['C'])]} · "
                f"púas {count('^')} · bugs {count('B')} · sierras {count('S')}+{count('s')} móviles · "
-               f"/0 {count('Z')}+{count('z')} móviles · portales {count('V')} V + {count('D')} D · hints {len(hints)}")
+               f"/0 {count('Z')}+{count('z')} móviles · portales {count('V')} V + {count('D')} D · estrellas {count('E')} · hints {len(hints)}")
     return errors, "\n".join(rep)
 
 

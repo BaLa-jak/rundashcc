@@ -77,14 +77,17 @@ namespace RunDashC.EditorTools
 
             // Botones.
             var start = AsciiButton.Create(root, "StartButton", "INICIAR", 48, Center, new Vector2(logoX, -70)).GetComponent<Button>();
-            var quit = AsciiButton.Create(root, "QuitButton", "SALIR", 48, Center, new Vector2(logoX, -160)).GetComponent<Button>();
+            var abilities = AsciiButton.Create(root, "AbilitiesButton", "HABILIDADES", 48, Center, new Vector2(logoX, -150)).GetComponent<Button>();
+            var quit = AsciiButton.Create(root, "QuitButton", "SALIR", 48, Center, new Vector2(logoX, -230)).GetComponent<Button>();
             input.navigation = new Navigation { mode = Navigation.Mode.Explicit, selectOnDown = start };
-            start.navigation = new Navigation { mode = Navigation.Mode.Explicit, selectOnUp = input, selectOnDown = quit };
-            quit.navigation = new Navigation { mode = Navigation.Mode.Explicit, selectOnUp = start };
+            start.navigation = new Navigation { mode = Navigation.Mode.Explicit, selectOnUp = input, selectOnDown = abilities };
+            abilities.navigation = new Navigation { mode = Navigation.Mode.Explicit, selectOnUp = start, selectOnDown = quit };
+            quit.navigation = new Navigation { mode = Navigation.Mode.Explicit, selectOnUp = abilities };
 
             // Integrantes (abajo a la izquierda) y récord + ayuda rápida (abajo a la derecha).
             UiKit.Label(root, "Integrantes", UiKit.IntegrantesComment(), 30, AsciiTheme.Green, TextAnchor.LowerLeft, Center, new Vector2(-440, -340), new Vector2(880, 260));
             UiKit.Label(root, "Hint", "// [ESPACIO] saltar   [ESC] pausa", 28, AsciiTheme.GreenDim, TextAnchor.LowerRight, Center, new Vector2(440, -394), new Vector2(880, 40));
+            var starsText = UiKit.Label(root, "Stars", "// estrellas: 0/21", 32, AsciiTheme.Cyan, TextAnchor.LowerRight, Center, new Vector2(440, -350), new Vector2(880, 44));
             var record = UiKit.Label(root, "Record", "// record: 0 bits", 36, AsciiTheme.Yellow, TextAnchor.LowerRight, Center, new Vector2(440, -440), new Vector2(880, 50));
 
             AsciiUi.AddCrtOverlay(canvas);
@@ -95,6 +98,8 @@ namespace RunDashC.EditorTools
             ctrl.recordText = record;
             ctrl.startButton = start;
             ctrl.quitButton = quit;
+            ctrl.abilitiesButton = abilities;
+            ctrl.starsText = starsText;
             ctrl.closeButton = close.GetComponent<Button>();
 
             SceneBuilder.Save(scene, SceneNames.Menu);

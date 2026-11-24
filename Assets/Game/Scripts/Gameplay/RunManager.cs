@@ -25,7 +25,10 @@ namespace RunDashC
 
         public static RunManager Instance { get; private set; }
         public RunState State { get; private set; } = RunState.Countdown;
-        public bool IsInvulnerable => Time.time < invulnerableUntil;
+        /// <summary>Tras un golpe, o mientras Camarada hace dash.</summary>
+        public bool IsInvulnerable => Time.time < invulnerableUntil || (player != null && player.Dashing);
+        /// <summary>TRY / CATCH: el próximo golpe no quita vida. Se recarga en cada checkpoint.</summary>
+        public bool ShieldReady { get; private set; }
         /// <summary>Último checkpoint (o el inicio).</summary>
         public Vector2 RespawnPoint { get; private set; }
 
@@ -55,6 +58,7 @@ namespace RunDashC
         {
             AudioManager.PlayMusic(Music.Level1);
             RespawnPoint = level.StartPosition;
+            ShieldReady = Abilities.Has(Ability.TryCatch);
             player.levelSpeed = level.SpeedAt(RespawnPoint.x);
             player.Respawn(RespawnPoint);
 
@@ -105,6 +109,16 @@ namespace RunDashC
                 return;
             }
 
+            if (ShieldReady)
+            {
+                ShieldReady = false;
+                invulnerableUntil = Time.time + RunTuning.InvulnerableTime;
+                AsciiParticles.Popup(player.transform.position + Vector3.up * 0.8f, "catch (e) { }", AsciiTheme.Cyan, 0.7f);
+                AudioManager.Play(Sfx.Stomp, 0.05f);
+                if (respawn) Respawn();
+                return;
+            }
+
             invulnerableUntil = Time.time + RunTuning.InvulnerableTime;
             AsciiParticles.Burst(player.transform.position, "!#x*", AsciiTheme.Red, 10, 5f, 0.5f, 0.45f, 8f);
             RunEvents.RaisePlayerHit();
@@ -121,6 +135,9 @@ namespace RunDashC
         {
             RespawnPoint = position;
             checkpointFlipped = WorldMode.Flipped;
+            ShieldReady = Abilities.Has(Ability.TryCatch);
+            if (Abilities.Has(Ability.HotReload) && GameSession.GainLife())
+                AsciiParticles.Popup(player.transform.position + Vector3.up * 1.1f, "hot reload: +1 vida", AsciiTheme.Green, 0.7f);
         }
 
         /// <summary>Al checkpoint, con el mundo como estaba ahí: así el portal azul que vuelva a cruzar voltea bien.</summary>

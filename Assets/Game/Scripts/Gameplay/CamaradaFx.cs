@@ -28,7 +28,7 @@ namespace RunDashC
         Light2D glow;
         readonly System.Collections.Generic.List<SpriteRenderer> outfit = new System.Collections.Generic.List<SpriteRenderer>();
         float baseScale = 1f, halfHeight = 0.37f;
-        float squash, squashVel, bobPhase, spinLeft, dustTimer, trailTimer;
+        float squash, squashVel, bobPhase, spinLeft, dustTimer, trailTimer, dashTrail;
         float danceWeight, danceTime;
         int danceBeat;
         bool exploded, dancing;
@@ -140,8 +140,19 @@ namespace RunDashC
             sprite.flipX = danceWeight > 0f && dir < 0f;
 
             var jitter = Vector3.zero;
-            bool invulnerable = run != null && run.IsInvulnerable && state != RunState.Dying;
-            if (invulnerable)
+            bool dashing = body != null && body.Dashing;
+            bool invulnerable = !dashing && run != null && run.IsInvulnerable && state != RunState.Dying;
+            if (dashing)
+            {
+                sprite.enabled = true;
+                sprite.color = Color.Lerp(Color.white, AsciiTheme.Cyan, 0.55f);
+                if ((dashTrail -= Time.deltaTime) <= 0f)
+                {
+                    dashTrail = 0.025f;
+                    AsciiParticles.Burst(body.transform.position + new Vector3(-0.5f, Random.Range(-0.2f, 0.2f)), ">=-", AsciiTheme.Cyan, 1, 0.5f, 0.25f, 0.4f, 0f);
+                }
+            }
+            else if (invulnerable)
             {
                 sprite.enabled = Mathf.Repeat(Time.time, 0.12f) < 0.08f;
                 sprite.color = Color.Lerp(Color.white, AsciiTheme.Red, 0.6f);
@@ -210,6 +221,15 @@ namespace RunDashC
             squashVel = 0f;
             spinLeft = SpinSeconds;
             AsciiParticles.Burst(Feet, "*+", AsciiTheme.Cyan, 5, 3f, 0.35f, 0.4f, 4f);
+        }
+
+        /// <summary>DASH: se estira hacia adelante y suelta chispas; la estela sigue en Update mientras dura.</summary>
+        public void OnDash()
+        {
+            squash = 0.3f;
+            squashVel = 0f;
+            spinLeft = 0f;
+            AsciiParticles.Burst(body.transform.position, ">>=*", AsciiTheme.Cyan, 8, 4f, 0.3f, 0.45f, 0f);
         }
 
         public void OnLand(float impactSpeed)
