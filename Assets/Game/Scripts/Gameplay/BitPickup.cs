@@ -5,13 +5,17 @@ namespace RunDashC
     /// <summary>Bit '*': "{1}" o "{0}" cian que gira y flota. Al recogerlo: +1 bit, sonido, chispas y popup.</summary>
     public class BitPickup : MonoBehaviour
     {
-        TextMesh text;
+        Transform spin;
         float phase;
         bool taken;
 
         void Start()
         {
-            text = WorldKit.AddText(transform, Random.value < 0.5f ? "{1}" : "{0}", Vector2.zero, AsciiTheme.Cyan, 0.8f, TextAnchor.MiddleCenter, 5);
+            spin = new GameObject("spin").transform;
+            spin.SetParent(transform, false);
+            var code = ProdSkin.Split(spin, out var prod);
+            if (prod != null) WorldKit.AddSprite(prod, "prod_moneda", 0.7f, 5);
+            WorldKit.AddText(code, Random.value < 0.5f ? "{1}" : "{0}", Vector2.zero, AsciiTheme.Cyan, 0.8f, TextAnchor.MiddleCenter, 5);
             var c = gameObject.AddComponent<CircleCollider2D>();
             c.isTrigger = true;
             c.radius = 0.45f;
@@ -21,8 +25,8 @@ namespace RunDashC
         void Update()
         {
             float t = Time.time * 3f + phase;
-            text.transform.localScale = new Vector3(Mathf.Cos(t), 1f, 1f);
-            text.transform.localPosition = new Vector3(0f, 0.12f * Mathf.Sin(t * 0.8f), 0f);
+            spin.localScale = new Vector3(Mathf.Cos(t), 1f, 1f);
+            spin.localPosition = new Vector3(0f, 0.12f * Mathf.Sin(t * 0.8f), 0f);
         }
 
         void OnTriggerEnter2D(Collider2D other)

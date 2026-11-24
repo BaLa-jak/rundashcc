@@ -205,6 +205,13 @@ SFX = {  # nombre: (duración s, función, pico dBFS)
     "sfx_game_over": (2.5, sfx_game_over, -1),
 }
 
+def sfx_portal(b):
+    """Entrar a un portal: barrido ascendente con vibrato + chispa de ruido."""
+    add(b, 0, 0.45, hz("C4"), hz("C7"), "square", duty=0.25, vol=0.3, a=0.01, d=0.3, s=0.6, r=0.15, sweep=0.45, vib=0.4)
+    add(b, 0, 0.45, hz("C3"), hz("C6"), "tri", vol=0.4, a=0.01, d=0.3, s=0.6, r=0.15, sweep=0.45)
+    add(b, 0.3, 0.05, SR, wave="noise", vol=0.15, a=0.001, d=0.2, s=0.0, r=0.2, lp=8000)
+
+
 # ---------------------------------------------------------------- Música
 CHORD = {  # bajo, notas del acorde
     "Am": ("A2", ("A3", "C4", "E4")), "F": ("F2", ("F3", "A3", "C4")), "C": ("C3", ("C4", "E4", "G4")),
@@ -340,6 +347,40 @@ def music_shop():
     return b, lead
 
 
+def music_produccion():
+    """Dimensión "producción": pop brillante en Do mayor, 120 BPM, 8 compases. Todo lo contrario a la terminal."""
+    b, st = loop_buffer(120, 8)
+    prog = ["C", "G", "Am", "F", "C", "G", "F", "G"]
+    lead = [
+        "E5 - G5 - C6 - G5 - A5 - G5 - E5 - D5 -",
+        "D5 - - - B4 - D5 - G5 - - - . . . .",
+        "C5 - E5 - A5 - E5 - G5 - E5 - C5 - A4 -",
+        "F5 - - - A5 - - - C6 - - - A5 - - -",
+        "G5 - E5 - C6 - - - B5 - A5 - G5 - E5 -",
+        "D5 - G5 - B5 - - - A5 - G5 - D5 - - -",
+        "C5 - F5 - A5 - C6 - D6 - C6 - A5 - F5 -",
+        "G5 - - - - - - - . . . . . . . .",
+    ]
+    for bar, name in enumerate(prog):
+        t0 = bar * 16 * st
+        root, tones = CHORD[name]
+        for i in range(8):  # bajo saltarín: raíz y quinta
+            f = hz(root) * (1.5 if i % 4 == 3 else 1) * (2 if i % 2 else 1)
+            add(b, t0 + i * 2 * st, 1.2 * st, f, wave="tri", vol=0.55, a=0.002, d=0.06, s=0.5, r=0.03)
+        for i in (2, 6, 10, 14):  # acordes en el contratiempo, tipo piano/ska
+            for n in tones:
+                add(b, t0 + i * st, 0.09, hz(n) * 2, duty=0.5, vol=0.05, a=0.002, d=0.08, s=0.4, r=0.04, lp=5000)
+        for i in (0, 4, 8, 12):
+            kick(b, t0 + i * st, vol=0.6)
+        for i in (4, 12):
+            snare(b, t0 + i * st, vol=0.35)
+        for i in range(0, 16, 2):
+            hat(b, t0 + i * st + st, vol=0.08)
+    seq(b, 0, st, lead, gate=0.8, duty=0.5, vol=0.16, a=0.003, d=0.1, s=0.7, r=0.05, vib=0.1, lp=6000)
+    seq(b, 0, st, lead, gate=0.8, wave="sine", vol=0.08, a=0.003, d=0.1, s=0.7, r=0.05)  # brillo
+    return b, lead
+
+
 # ---------------------------------------------------------------- Escritura y self-check
 def save(name, buf, peak_db):
     fade = int(0.002 * SR)  # la primera y la última muestra quedan en 0 (sin clic al hacer loop)
@@ -368,15 +409,23 @@ def main():
     save("music_level1", level, -1)
     shop, shop_lead = music_shop()
     save("music_shop", shop, -1)
+    # Al final: usan el mismo rng de ruido, así los WAV anteriores no cambian.
+    portal = [0.0] * round(0.8 * SR)
+    sfx_portal(portal)
+    save("sfx_portal", portal, -3)
+    prod, prod_lead = music_produccion()
+    save("music_produccion", prod, -1)
 
     # self-check
-    for bars in (mel, lead, shop_lead):
+    for bars in (mel, lead, shop_lead, prod_lead):
         assert all(len(bar.split()) == 16 for bar in bars), "cada compás debe tener 16 semicorcheas"
     expected = {n: (s * 0.8, s * 1.05) for n, (s, _, _) in SFX.items()}
     expected["music_menu"] = (19.2, 19.2)
     expected["music_level1"] = (64 * 60 / 140, 64 * 60 / 140)
     expected["music_shop"] = (20.0, 20.0)
-    assert len(expected) == 19
+    expected["sfx_portal"] = (0.8, 0.8)
+    expected["music_produccion"] = (16.0, 16.0)
+    assert len(expected) == 21
     for name, (lo, hi) in expected.items():
         path = OUT / f"{name}.wav"
         assert path.exists(), path

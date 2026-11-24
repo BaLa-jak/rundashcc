@@ -7,10 +7,10 @@ namespace RunDashC
     public enum Sfx
     {
         Click, Hover, Type, Start, Jump, DoubleJump, Land, Bit, Hit, Stomp,
-        Checkpoint, Pause, Countdown, Go, LevelComplete, GameOver
+        Checkpoint, Pause, Countdown, Go, LevelComplete, GameOver, Portal
     }
 
-    public enum Music { None, Menu, Level1, Shop }
+    public enum Music { None, Menu, Level1, Shop, Produccion }
 
     /// <summary>
     /// Audio persistente (lo crea GameBootstrap). Clips en Resources/Audio:

@@ -15,6 +15,17 @@ namespace RunDashC
         public static readonly Color Red = Hex("#FF3344");
         public static readonly Color White = Hex("#E8E8E8");
         public static readonly Color Yellow = Hex("#FFD23F");
+        public static readonly Color Magenta = Hex("#FF3BF2");
+
+        // Dimensión "producción" (portal morado): el único lugar del juego con colores fuera de la terminal.
+        public static readonly Color ProdSkyTop = Hex("#3FA9F5");
+        public static readonly Color ProdSkyBottom = Hex("#BDEBFF");
+        public static readonly Color ProdGrass = Hex("#4CC35A");
+        public static readonly Color ProdGrassLight = Hex("#8FE36B");
+        public static readonly Color ProdDirt = Hex("#B5713A");
+        public static readonly Color ProdDirtDark = Hex("#7A4522");
+        public static readonly Color ProdFlag = Hex("#FF5A4E");
+        public static readonly Color ProdPole = Hex("#F2F2F2");
 
         public const string GameTitle = "RUNDASHC";
         public const string Practica = "PRACTICA #8";

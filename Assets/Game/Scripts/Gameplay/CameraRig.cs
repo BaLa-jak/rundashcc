@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace RunDashC
@@ -5,6 +6,7 @@ namespace RunDashC
     /// <summary>
     /// Va en la Main Camera: y fija en 6 (se ven exactamente las filas 0..11) y x sigue a Camarada con
     /// offset +6 y un suavizado leve. Shake con tiempo no escalado. Zoom suave (ease-in-out) hacia un objetivo.
+    /// Mundo al revés (<see cref="WorldMode.Flipped"/>): voltea la proyección en Y con una animación de "giro".
     /// </summary>
     [RequireComponent(typeof(Camera))]
     public class CameraRig : MonoBehaviour
@@ -15,11 +17,14 @@ namespace RunDashC
         public float smoothing = 10f;
         public bool follow = true;
         const float ZoomLift = 0.5f; // Camarada parada mide ~1 u: centra el zoom un poco arriba del cuerpo
+        const float FlipSeconds = 0.6f;
 
         Camera cam;
         Transform zoomTarget;
         float x, shakeAmplitude, shakeDuration, shakeLeft;
         float baseSize, zoomSize, zoom, zoomGoal, zoomSpeed;
+        float flip; // 0 = derecho, 1 = al revés
+        readonly List<Canvas> overlaid = new List<Canvas>();
 
         void Awake()
         {
@@ -52,6 +57,46 @@ namespace RunDashC
                 shake = Random.insideUnitCircle * (shakeAmplitude * Mathf.Clamp01(shakeLeft / shakeDuration));
             }
             transform.position = new Vector3(p.x + shake.x, p.y + shake.y, transform.position.z);
+            UpdateFlip();
+        }
+
+        void UpdateFlip()
+        {
+            float goal = WorldMode.Flipped ? 1f : 0f;
+            if (flip == 0f && goal == 0f && overlaid.Count == 0) return; // camino normal: proyección de Unity intacta
+            flip = Mathf.MoveTowards(flip, goal, Time.deltaTime / FlipSeconds); // escalado: se congela en pausa
+            // La pantalla se "aplana" hasta una línea y se abre al revés; nunca exactamente 0 (matriz degenerada).
+            float k = Mathf.Cos(Mathf.PI * Mathf.SmoothStep(0f, 1f, flip));
+            if (Mathf.Abs(k) < 0.02f) k = flip < 0.5f ? 0.02f : -0.02f;
+            cam.ResetProjectionMatrix();
+            if (flip > 0f) cam.projectionMatrix = Matrix4x4.Scale(new Vector3(1f, k, 1f)) * cam.projectionMatrix;
+            SetHudOverlay(flip > 0f);
+        }
+
+        /// <summary>
+        /// Los canvas Screen Space - Camera se dibujan con esta cámara: mientras esté volteada pasan a overlay
+        /// para que el HUD siga derecho. shortcut: en overlay el HUD pierde el bloom; si molesta, una cámara de UI aparte.
+        /// </summary>
+        void SetHudOverlay(bool on)
+        {
+            if (on == overlaid.Count > 0) return;
+            if (on)
+            {
+                foreach (var c in FindObjectsByType<Canvas>(FindObjectsSortMode.None))
+                    if (c.isRootCanvas && c.renderMode == RenderMode.ScreenSpaceCamera && c.worldCamera == cam)
+                    {
+                        c.renderMode = RenderMode.ScreenSpaceOverlay;
+                        overlaid.Add(c);
+                    }
+                return;
+            }
+            foreach (var c in overlaid)
+                if (c != null)
+                {
+                    c.renderMode = RenderMode.ScreenSpaceCamera;
+                    c.worldCamera = cam;
+                }
+            overlaid.Clear();
         }
 
         /// <summary>Acerca la cámara a <paramref name="target"/> hasta <paramref name="size"/> (ortográfico) en <paramref name="seconds"/>.</summary>

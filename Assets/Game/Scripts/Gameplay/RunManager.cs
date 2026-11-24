@@ -30,6 +30,7 @@ namespace RunDashC
         public Vector2 RespawnPoint { get; private set; }
 
         float invulnerableUntil = -1f;
+        bool checkpointFlipped;
         InputAction pauseAction;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
@@ -47,6 +48,7 @@ namespace RunDashC
         void OnDestroy()
         {
             if (Instance == this) Instance = null;
+            WorldMode.Reset(); // fuera de la partida el mundo vuelve a la normalidad (pausa/Help usa Flipped)
         }
 
         IEnumerator Start()
@@ -76,6 +78,8 @@ namespace RunDashC
                 Time.frameCount != SceneFlow.ResumedFrame && (State == RunState.Countdown || State == RunState.Running))
                 SceneFlow.Pause();
 
+            if (State == RunState.Running && WorldMode.Tick(Time.deltaTime)) SetProduction(false);
+
             if (State == RunState.Running && GameSession.IsEndless)
             {
                 float x = player.transform.position.x;
@@ -97,7 +101,7 @@ namespace RunDashC
             if (State != RunState.Running) return;
             if (IsInvulnerable)
             {
-                if (respawn) player.Respawn(RespawnPoint); // sin vida extra, pero nunca se queda trabada
+                if (respawn) Respawn(); // sin vida extra, pero nunca se queda trabada
                 return;
             }
 
@@ -109,11 +113,43 @@ namespace RunDashC
             GameSession.LoseLife(); // con 0 vidas, OnSessionChanged pasa a Dying
             if (State == RunState.Dying) return;
 
-            if (respawn) player.Respawn(RespawnPoint);
+            if (respawn) Respawn();
             StartCoroutine(Hitstop());
         }
 
-        public void SetCheckpoint(Vector2 position) => RespawnPoint = position;
+        public void SetCheckpoint(Vector2 position)
+        {
+            RespawnPoint = position;
+            checkpointFlipped = WorldMode.Flipped;
+        }
+
+        /// <summary>Al checkpoint, con el mundo como estaba ahí: así el portal azul que vuelva a cruzar voltea bien.</summary>
+        void Respawn()
+        {
+            player.Respawn(RespawnPoint);
+            WorldMode.SetFlipped(checkpointFlipped);
+            SetProduction(false);
+        }
+
+        /// <summary>Llamado por <see cref="PortalGate"/>.</summary>
+        public void EnterPortal(PortalKind kind)
+        {
+            if (State != RunState.Running) return;
+            AudioManager.Play(Sfx.Portal);
+            if (kind == PortalKind.Flip) WorldMode.SetFlipped(!WorldMode.Flipped); // CameraRig anima el giro
+            else SetProduction(true);
+        }
+
+        /// <summary>Entra o sale de la dimensión producción con destello blanco y cambio de música.</summary>
+        void SetProduction(bool on)
+        {
+            if (on && WorldMode.Production) { WorldMode.SetProduction(true); return; } // otro portal: reinicia el tiempo
+            if (!on && !WorldMode.Production) return;
+            AudioManager.PlayMusic(on ? Music.Produccion : Music.Level1);
+            var fader = ScreenFader.Instance;
+            if (fader != null) fader.Flash(Color.white, () => WorldMode.SetProduction(on));
+            else WorldMode.SetProduction(on);
+        }
 
         /// <summary>Llamado por la meta.</summary>
         public void Complete()

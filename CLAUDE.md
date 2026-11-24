@@ -19,13 +19,15 @@ Tools/unity.sh test      # PlayMode tests (Assets/Game/Tests/SmokeTests.cs); res
 To run a single test, call Unity directly with `-runTests -testPlatform PlayMode -testFilter <TestName>`. Copy the other arguments from `Tools/unity.sh`.
 
 Asset generators (Python). Use plain `python3`, not `-I`: PIL lives in the user site-packages.
-- `python3 Tools/art/process_sprites.py`: turns `Assets/*.jpeg` into transparent PNGs in `Assets/Game/Resources/Art/`. It also slices `cosmeticos.jpeg` into `cos_<id>.png` ×20 + `tienda_icono.png` (row bands/columns `COS_ROWS`/`COS_COLS`, ids in the same order as `Cosmetics.All`) and scales `duende.jpeg` (shopkeeper). Worn layers `wear_<id>.png`: shirts map the icon pattern onto the rat's torso fur; hats/gloves/shoes are side-view pixel templates (`HAT_TPL`, `GLOVE_TPL`, `SHOE_TPL`, colors in `WEAR_PAL`) placed by rat-pixel coordinates (`HAT`, `GLOVE`, `SHOE`). If `camarada.png` changes, re-measure those.
-- `python3 Tools/audio/generate_audio.py`: synthesizes all SFX and music WAVs (deterministic) into `Assets/Game/Resources/Audio/`.
-- `python3 Tools/level/generate_levels.py`: regenerates levels 2–5 (deterministic, difficulty table `LEVELS` inside: speed, spacing, obstacle mix, checkpoints). Every obstacle is kept only if `simulate.py` still finds a no-hit route. Don't hand-edit `nivel2..5.txt`.
+- `python3 Tools/art/process_sprites.py`: turns `Assets/*.jpeg` into transparent PNGs in `Assets/Game/Resources/Art/`. It also crops the blue and purple portals from `Assets/portales.png` (`PORTAL_BOX`), squashes them into side-view gates and writes `portal_{azul,morado}` plus `_frente` (right rim only, drawn in front of Camarada). It draws the "production" pixel art `prod_*` (coin, spikes, saw, fireball, cloud, hill). It also slices `cosmeticos.jpeg` into `cos_<id>.png` ×20 + `tienda_icono.png` (row bands/columns `COS_ROWS`/`COS_COLS`, ids in the same order as `Cosmetics.All`) and scales `duende.jpeg` (shopkeeper). Worn layers `wear_<id>.png`: shirts map the icon pattern onto the rat's torso fur; hats/gloves/shoes are side-view pixel templates (`HAT_TPL`, `GLOVE_TPL`, `SHOE_TPL`, colors in `WEAR_PAL`) placed by rat-pixel coordinates (`HAT`, `GLOVE`, `SHOE`). If `camarada.png` changes, re-measure those.
+- `python3 Tools/audio/generate_audio.py`: synthesizes all SFX and music WAVs (deterministic) into `Assets/Game/Resources/Audio/`. Everything shares one noise rng, so new sounds go **at the end** of `main()` (as `sfx_portal` and `music_produccion` do) or every older WAV changes.
+- `python3 Tools/level/generate_levels.py`: regenerates levels 2–7 (deterministic, difficulty table `LEVELS` inside: speed, spacing, obstacle mix, checkpoints). Every obstacle is kept only if `simulate.py` still finds a no-hit route. Don't hand-edit `nivel2..5.txt`.
   - It also writes the endless chunks `Levels/Infinito/tNN_{a,b}.txt`: `ENDLESS_TIERS` tiers × `ENDLESS_PER_TIER`, all starting and ending flat at height 2.
     - Tiers 1–4 are levels 2–5.
     - Later tiers multiply level 5 (`endless_tier`).
     - `speed` in each chunk is **absolute** (the multiplier is 1 in endless).
+  - Levels 6–7 (`portal_level`) reuse level 3's config and its **real** speed (the file speed is divided by their `SpeedMultiplier`), plus `portals=[(fraction, char)]`. Each portal gets 4 flat columns before and 12 after.
+    - Asserts: every `D` ends (`PROD_SECONDS` × speed) before the goal, and `V` portals come in pairs.
   - It takes about 2–3 minutes.
 - `python3 Tools/level/simulate.py [ruta]`: replicates `CamaradaController`/`RunTuning` physics and checks each level can be cleared without hits (input every 60 ms, hazards +0.1 u, 8 phases for moving hazards). Keep its constants in sync with `RunTuning` and the hazard colliders.
 - `python3 Tools/level/check_level.py`: validates every `nivel*.txt` against the jump/gap rules (double jump counts as taught from level 2).
@@ -68,7 +70,7 @@ All game code lives in `Assets/Game/`.
 
 **Levels are text files.** The format is documented in `Core/LevelData.cs`:
 - 12 rows between `map`/`end`; the bottom row is y=0; 1 char = 1 unit.
-- Legend: `= ^ B S s Z z * C F P`.
+- Legend: `= ^ B S s Z z * C F P V D`. `V` is the blue portal (world upside down) and `D` the purple one (production dimension).
 - `hint <col> <y> <text>` places in-world text.
 - At runtime `Gameplay/LevelBuilder.cs` turns the map into objects. The camera y is fixed so rows 0–11 fill the screen.
 
@@ -77,6 +79,14 @@ All game code lives in `Assets/Game/`.
 - `CamaradaController` handles physics (auto-run, variable jump, double jump, stomping bugs). `CamaradaFx` holds the procedural animation.
 - Hazards derive from `Hazard`.
 - `AsciiParticles` is a pooled `TextMesh` FX system.
+- **Portals** (`PortalGate`, state in `Core/WorldMode`):
+  - `V` toggles `WorldMode.Flipped`, which is visual only: physics and `simulate.py` are unaffected.
+    - `CameraRig` animates a Y-flip of the projection matrix.
+    - While flipped, Screen Space–Camera canvases switch to Overlay so the HUD stays upright; `CanvasCameraBinder` does the same for pause.
+  - `D` enters production for `WorldMode.ProductionSeconds` (10 s). `RunManager.SetProduction` plays a white `ScreenFader.Flash`, swaps to `Music.Produccion` and back.
+    - Visuals built with `ProdSkin.Split(parent, out prod)` get a `code` child (ASCII) and, only in levels with `D`, a `prod` child (colors, no code); the skin toggles them.
+    - Any new world visual should put its ASCII art under `code` and a production version under `prod`.
+  - Respawning restores the checkpoint's `Flipped` and leaves production.
 
 The HUD lives in `Scripts/Hud/` and the menu/game-over/pause UI and widgets in `Scripts/UI/`.
 

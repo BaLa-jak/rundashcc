@@ -34,7 +34,7 @@ namespace RunDashC
         {
             // Una scanline cada 4 px de pantalla.
             image.uvRect = new Rect(0f, 0f, 1f, Screen.height / 4f);
-            float a = lineAlpha + (Random.value - 0.5f) * flicker;
+            float a = WorldMode.Production ? 0f : lineAlpha + (Random.value - 0.5f) * flicker; // producción: sin monitor CRT
             image.color = new Color(1f, 1f, 1f, a);
         }
 

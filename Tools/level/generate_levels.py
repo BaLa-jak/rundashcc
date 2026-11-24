@@ -48,6 +48,24 @@ LEVELS = {
             hints=["// nivel_05: kernel.c", "// sudo rm -rf /bugs  // sin piedad"]),
 }
 
+# Niveles con portales: misma dificultad que el nivel 3 (incluida su velocidad real). portals = [(fracción del
+# largo, char)]: 'D' = dimensión producción (PROD_SECONDS), 'V' = mundo al revés hasta el siguiente 'V'.
+PROD_SECONDS = 10.0  # = WorldMode.ProductionSeconds
+PORTAL_LEAD, PORTAL_CLEAR = 4, 12  # suelo plano antes / después del portal (la transición dura ~0.6 s)
+
+
+def portal_level(level, name, portals, hints):
+    base = LEVELS[3]
+    real = base["speed"] * (1 + 0.15 * (3 - 1))
+    # speed del archivo × SpeedMultiplier del nivel = velocidad real del nivel 3
+    return dict(base, name=name, speed=round(real / (1 + 0.15 * (level - 1)), 4), portals=portals, hints=hints)
+
+
+LEVELS[6] = portal_level(6, "deploy.c", [(0.12, "D"), (0.42, "D"), (0.66, "D")],
+                         ["// nivel_06: deploy.c", "// portal morado: deploy a produccion (10 s)"])
+LEVELS[7] = portal_level(7, "espejo.c", [(0.12, "V"), (0.34, "V"), (0.52, "V"), (0.62, "D"), (0.8, "V")],
+                         ["// nivel_07: espejo.c", "// portal azul: el mundo se voltea"])
+
 
 class Map:
     """Columnas sólidas: floor[x] = superficie (None = pozo), items[x] = {y: char}."""
@@ -155,8 +173,14 @@ def build(level, cfg, rng, lead=22):
     next_cp = cp_every
     kinds, weights = zip(*cfg["weights"].items())
     placed = fallback = rejected = 0
+    portals = [(round(fr * cfg["length"]), ch) for fr, ch in cfg.get("portals", ())]
 
     while len(m.floor) < cfg["length"]:
+        if portals and len(m.floor) >= portals[0][0]:
+            m.flat(PORTAL_LEAD, f)
+            m.col(f, {f: portals.pop(0)[1]})
+            m.flat(PORTAL_CLEAR, f)
+            continue
         if len(m.floor) >= next_cp:
             m.col(f, {f: "C"})
             m.flat(11, f)  # regla CP_CLEAR de check_level
@@ -183,6 +207,9 @@ def build(level, cfg, rng, lead=22):
         f = 2
         m.flat(room + 4, f)
     m.flat(4, f)
+    for x, col in enumerate(m.items):  # la producción se apaga antes de la meta (FinishGate no tiene piel prod)
+        assert "D" not in col.values() or x + PROD_SECONDS * speed + 5 < len(m.floor), f"portal D en col {x}: muy cerca de la meta"
+    assert sum("V" in col.values() for col in m.items) % 2 == 0, "los portales V van en pares: la meta se ve al derecho"
     m.col(f, {f: "F"})
     m.flat(18, f)
     stats = f"{placed} obstáculos ({placed / (len(m.floor) / speed):.2f}/s) · {rejected} rechazados por imposibles · {fallback} tramos planos de relleno · {speed:.1f} u/s"

@@ -13,7 +13,10 @@ namespace RunDashC
 
         void Start()
         {
-            text = WorldKit.AddText(transform, "^^", Vector2.zero, AsciiTheme.Red, Em, TextAnchor.LowerCenter, 10);
+            var code = ProdSkin.Split(transform, out var prod);
+            if (prod != null) // pinchos de metal apoyados en el suelo
+                WorldKit.AddSprite(prod, "prod_pinchos", 0.84f, 10).transform.localPosition = new Vector3(0f, -0.5f + 0.32f, 0f);
+            text = WorldKit.AddText(code, "^^", Vector2.zero, AsciiTheme.Red, Em, TextAnchor.LowerCenter, 10);
             text.transform.localScale = new Vector3(1f, StretchY, 1f);
             text.transform.localPosition = new Vector3(0f, -0.5f - CaretInkBottom * Em * StretchY, 0f);
 

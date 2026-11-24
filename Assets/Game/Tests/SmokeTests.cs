@@ -75,6 +75,73 @@ namespace RunDashC.Tests
             Assert.IsNotNull(Resources.Load<AudioClip>("Audio/" + AudioManager.FileName(Music.Menu)));
             Assert.IsNotNull(Resources.Load<AudioClip>("Audio/" + AudioManager.FileName(Music.Level1)));
             Assert.IsNotNull(Resources.Load<AudioClip>("Audio/" + AudioManager.FileName(Music.Shop)));
+            Assert.IsNotNull(Resources.Load<AudioClip>("Audio/" + AudioManager.FileName(Music.Produccion)));
+        }
+
+        [Test]
+        public void PortalLevelsHavePortalsAndArt()
+        {
+            Assert.IsTrue(LevelData.Load(6).Contains(LevelData.PortalProduction), "nivel6 sin portal morado");
+            var espejo = LevelData.Load(7);
+            Assert.IsTrue(espejo.Contains(LevelData.PortalFlip) && espejo.Contains(LevelData.PortalProduction), "nivel7 sin portales");
+            Assert.IsFalse(LevelData.Load(3).Contains(LevelData.PortalFlip));
+            foreach (var art in new[] { "portal_azul", "portal_azul_frente", "portal_morado", "portal_morado_frente",
+                         "prod_pinchos", "prod_moneda", "prod_sierra", "prod_fuego", "prod_nube", "prod_colina" })
+                Assert.IsNotNull(Resources.Load<Sprite>("Art/" + art), art);
+        }
+
+        [Test]
+        public void ProductionLastsTenSecondsAndFlipToggles()
+        {
+            WorldMode.Reset();
+            int changes = 0;
+            Action count = () => changes++;
+            WorldMode.Changed += count;
+            try
+            {
+                WorldMode.SetProduction(true);
+                Assert.IsFalse(WorldMode.Tick(6f));
+                WorldMode.SetProduction(true); // otro portal reinicia el tiempo
+                Assert.IsFalse(WorldMode.Tick(6f));
+                Assert.IsTrue(WorldMode.Tick(4.1f), "La producción debe acabarse a los 10 s");
+                Assert.IsFalse(WorldMode.Tick(1f), "Tick avisa una sola vez");
+                WorldMode.SetProduction(false);
+                Assert.IsFalse(WorldMode.Production);
+                WorldMode.SetFlipped(true);
+                WorldMode.SetFlipped(true);
+                Assert.IsTrue(WorldMode.Flipped);
+                Assert.AreEqual(3, changes, "Changed solo cuando el estado cambia");
+            }
+            finally
+            {
+                WorldMode.Changed -= count;
+                WorldMode.Reset();
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator PortalsSwitchSkinAndFlipCameraButNotHud()
+        {
+            yield return StartRun(6);
+            RunManager.Instance.player.levelSpeed = 0f; // quieta en el inicio: una caída (respawn) apagaría la producción
+            Assert.IsNull(GameObject.Find("prod"), "La piel prod debe empezar apagada");
+            Assert.IsNotNull(GameObject.Find("code"));
+            RunManager.Instance.EnterPortal(PortalKind.Production);
+            yield return WaitFor(() => WorldMode.Production, 2f);
+            Assert.IsTrue(WorldMode.Production);
+            Assert.IsNotNull(GameObject.Find("prod"), "No se prendió la piel de producción");
+
+            RunManager.Instance.EnterPortal(PortalKind.Flip);
+            yield return new WaitForSeconds(1f);
+            var cam = Camera.main;
+            Assert.Less(cam.projectionMatrix.m11, 0f, "La cámara no quedó volteada");
+            var hud = GameObject.Find("HUD").GetComponent<Canvas>();
+            Assert.AreEqual(RenderMode.ScreenSpaceOverlay, hud.renderMode, "El HUD debe seguir derecho");
+
+            RunManager.Instance.EnterPortal(PortalKind.Flip);
+            yield return new WaitForSeconds(1f);
+            Assert.Greater(cam.projectionMatrix.m11, 0f);
+            Assert.AreEqual(RenderMode.ScreenSpaceCamera, hud.renderMode);
         }
 
         [UnityTest]
@@ -221,7 +288,8 @@ namespace RunDashC.Tests
             Assert.IsNull(GameObject.Find("finish"), "El infinito no tiene meta");
             Assert.IsNotNull(GameObject.Find("chunk_0"), "No se construyó el primer tramo");
             yield return new WaitForSecondsRealtime(1.5f);
-            Assert.Greater(GameSession.Distance, 5, "La distancia no sube al correr");
+            // Sin saltar choca con el primer obstáculo del tramo (al azar, ~6 columnas después del inicio).
+            Assert.Greater(GameSession.Distance, 2, "La distancia no sube al correr");
         }
 
         [Test]

@@ -23,10 +23,13 @@ namespace RunDashC
         {
             visual = new GameObject("visual").transform;
             visual.SetParent(transform, false);
-            sprite = WorldKit.AddSprite(visual, "obstaculo", Size, 10);
+            var code = ProdSkin.Split(visual, out var prod);
+            if (prod != null) WorldKit.AddSprite(prod, "prod_fuego", Size * 0.85f, 10);
+            sprite = WorldKit.AddSprite(code, "obstaculo", Size, 10);
+            var orbitRoot = ProdSkin.Split(transform, out _); // las órbitas "0/" son código: en producción no hay
             glow = WorldKit.AddLight(transform, AsciiTheme.Red, 1.2f, 2.4f);
             for (int i = 0; i < orbit.Length; i++)
-                orbit[i] = WorldKit.AddText(transform, OrbitChars[i].ToString(), Vector2.zero, AsciiTheme.Red, 0.55f, TextAnchor.MiddleCenter, 11);
+                orbit[i] = WorldKit.AddText(orbitRoot, OrbitChars[i].ToString(), Vector2.zero, AsciiTheme.Red, 0.55f, TextAnchor.MiddleCenter, 11);
             AddTrigger<CircleCollider2D>().radius = 0.42f;
             origin = transform.position;
             phase = origin.x * 0.53f;

@@ -19,7 +19,11 @@ namespace RunDashC
 
         void Start()
         {
-            spin = WorldKit.AddSprite(transform, "sierra", Size, 10).transform;
+            spin = new GameObject("spin").transform;
+            spin.SetParent(transform, false);
+            var code = ProdSkin.Split(spin, out var prod);
+            if (prod != null) WorldKit.AddSprite(prod, "prod_sierra", Size * 0.9f, 10);
+            WorldKit.AddSprite(code, "sierra", Size, 10);
             glow = WorldKit.AddLight(transform, AsciiTheme.Red, 1f, 2.6f);
             AddTrigger<CircleCollider2D>().radius = Radius;
             origin = transform.position;

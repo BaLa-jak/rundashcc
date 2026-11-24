@@ -15,7 +15,7 @@ namespace RunDashC
         public const int MaxNameLength = 12;
         public const string DefaultName = "SYSADMIN";
         /// <summary>Niveles en Resources/Levels (nivel1..nivelN). El último se desbloquea con los demás al 100%.</summary>
-        public const int LevelCount = 5;
+        public const int LevelCount = 7;
         /// <summary>Nivel infinito (después de los normales): tramos de Resources/Levels/Infinito, puntaje = distancia.</summary>
         public const int EndlessLevel = LevelCount + 1;
 

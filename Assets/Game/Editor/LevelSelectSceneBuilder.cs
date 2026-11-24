@@ -47,8 +47,9 @@ namespace RunDashC.EditorTools
                 .gameObject.AddComponent<TypewriterText>();
             UiKit.LeftLabel(root, "Header", "// SELECCIONA UN NIVEL", 32, AsciiTheme.GreenDim, left, 135);
 
-            // Filas: botón a la izquierda, texto (archivo + barra) a la derecha.
-            const int btnFs = 40, rowFs = 36;
+            // Filas: botón a la izquierda, texto (archivo + barra) a la derecha. 8 filas entre el header y TIENDA.
+            const int btnFs = 36, rowFs = 32;
+            const float rowTop = 80f, rowStep = 56f;
             float btnW = ("NIVEL 00".Length + 10) * UiKit.Cw(btnFs);
             var buttons = new Button[GameSession.LevelCount];
             var rows = new Text[GameSession.LevelCount];
@@ -56,7 +57,7 @@ namespace RunDashC.EditorTools
             Text endlessRow = null;
             for (int i = 0; i <= GameSession.LevelCount; i++) // la última fila es el infinito
             {
-                float y = 75f - i * 70f;
+                float y = rowTop - i * rowStep;
                 bool inf = i == GameSession.LevelCount;
                 var b = AsciiButton.Create(root, inf ? "Endless" : $"Level{i + 1:00}", inf ? "INFINITO" : $"NIVEL {i + 1:00}", btnFs, Center, new Vector2(left + btnW * 0.5f, y)).GetComponent<Button>();
                 b.navigation = new Navigation { mode = Navigation.Mode.Vertical };

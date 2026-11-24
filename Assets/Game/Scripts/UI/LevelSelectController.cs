@@ -10,7 +10,7 @@ namespace RunDashC
     public class LevelSelectController : MonoBehaviour
     {
         /// <summary>Nombre "de archivo" de cada nivel, en el orden nivel1..nivelN.</summary>
-        public static readonly string[] Files = { "main.c", "bugs.c", "sierras.c", "div_cero.c", "kernel.c" };
+        public static readonly string[] Files = { "main.c", "bugs.c", "sierras.c", "div_cero.c", "kernel.c", "deploy.c", "espejo.c" };
         public const string EndlessFile = "while(1).c";
         const int BarCells = 20;
 

@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""Convierte los JPEG de Assets/ en sprites PNG con alfa para Assets/Game/Resources/Art/.
+"""Convierte los JPEG de Assets/ (y portales.png) en sprites PNG con alfa para Assets/Game/Resources/Art/.
 
 Uso: python3 Tools/art/process_sprites.py   (necesita Pillow; no modifica los JPEG)
 """
 import math
 from pathlib import Path
 
-from PIL import Image
+from PIL import Image, ImageDraw
 
 ROOT = Path(__file__).resolve().parents[2]
 SRC = ROOT / "Assets"
@@ -391,6 +391,90 @@ def wear_layers(rat_png, icons):
     return out
 
 
+# Portales (Assets/portales.png, 1024x572, la imagen de referencia): 1 azul = volteo, 3 morado = dimensión.
+# Recortes sin títulos ni reflejo; se comprimen en x para leerse como compuerta vista de lado en el 2D.
+PORTAL_BOX = {"azul": (0, 70, 345, 458), "morado": (680, 70, 1024, 456)}
+PORTAL_H = 340       # px = 3.4 u @PPU100 (Camarada mide ~0.75 u)
+PORTAL_SQUASH = 0.55
+PORTAL_FRONT = 0.7   # desde aquí (fracción del ancho) el aro va delante de Camarada
+
+
+def portales():
+    src = Image.open(SRC / "portales.png").convert("RGB")
+    out = {}
+    for name, box in PORTAL_BOX.items():
+        img = color_to_alpha(src.crop(box))
+        img = img.crop(img.getbbox())
+        w = round(img.width * PORTAL_SQUASH * PORTAL_H / img.height)
+        img = pad(img.resize((w, PORTAL_H), Image.LANCZOS), MARGIN)
+        front = img.copy()
+        a = front.getchannel("A").load()
+        for y in range(front.height):
+            for x in range(round(front.width * PORTAL_FRONT)):
+                a[x, y] = 0
+        front.putalpha(Image.frombytes("L", front.size, bytes(a[x, y] for y in range(front.height) for x in range(front.width))))
+        out[f"portal_{name}"] = img
+        out[f"portal_{name}_frente"] = front
+    return out
+
+
+# Dimensión "producción": pixel art limpio y colorido, sin código. Se dibuja a resolución nativa y se escala x6.
+PROD_SCALE = 6
+
+
+def _px(size):
+    img = Image.new("RGBA", size, (0, 0, 0, 0))
+    return img, ImageDraw.Draw(img)
+
+
+def produccion():
+    s = {}
+    img, d = _px((16, 16))  # moneda
+    d.ellipse((1, 1, 14, 14), fill=(176, 110, 20, 255))
+    d.ellipse((2, 2, 13, 13), fill=(255, 200, 40, 255))
+    d.ellipse((4, 4, 11, 11), fill=(255, 225, 110, 255))
+    d.rectangle((7, 5, 8, 10), fill=(214, 150, 25, 255))
+    d.point([(4, 3), (3, 4)], fill=(255, 255, 230, 255))
+    s["prod_moneda"] = img
+    img, d = _px((16, 12))  # dos pinchos de metal
+    for x0 in (0, 8):
+        d.polygon([(x0, 11), (x0 + 3.5, 0), (x0 + 7, 11)], fill=(120, 130, 150, 255))
+        d.polygon([(x0 + 2, 11), (x0 + 3.5, 2), (x0 + 3.5, 11)], fill=(215, 225, 240, 255))
+    d.rectangle((0, 11, 15, 11), fill=(70, 75, 95, 255))
+    s["prod_pinchos"] = img
+    img, d = _px((26, 26))  # sierra de acero
+    pts = []
+    for i in range(32):
+        r = 12.5 if i % 2 == 0 else 9.5
+        ang = math.pi * 2 * i / 32
+        pts.append((12.5 + r * math.cos(ang), 12.5 + r * math.sin(ang)))
+    d.polygon(pts, fill=(150, 160, 175, 255))
+    d.ellipse((4, 4, 21, 21), fill=(200, 210, 225, 255))
+    d.ellipse((9, 9, 16, 16), fill=(230, 70, 60, 255))
+    d.ellipse((11, 11, 14, 14), fill=(90, 30, 30, 255))
+    s["prod_sierra"] = img
+    img, d = _px((20, 20))  # bola de fuego con picos
+    pts = []
+    for i in range(16):
+        r = 9.5 if i % 2 == 0 else 6.5
+        ang = math.pi * 2 * i / 16
+        pts.append((9.5 + r * math.cos(ang), 9.5 + r * math.sin(ang)))
+    d.polygon(pts, fill=(230, 50, 40, 255))
+    d.ellipse((4, 4, 15, 15), fill=(255, 140, 30, 255))
+    d.ellipse((7, 7, 12, 12), fill=(255, 230, 90, 255))
+    s["prod_fuego"] = img
+    img, d = _px((32, 14))  # nube
+    for box in ((0, 6, 12, 13), (6, 1, 20, 13), (15, 3, 27, 13), (21, 7, 31, 13)):
+        d.ellipse(box, fill=(255, 255, 255, 255))
+    d.rectangle((3, 12, 28, 13), fill=(215, 230, 245, 255))
+    s["prod_nube"] = img
+    img, d = _px((64, 24))  # colina
+    d.ellipse((0, 0, 63, 47), fill=(60, 170, 80, 255))
+    d.ellipse((6, 3, 40, 30), fill=(95, 205, 105, 255))
+    s["prod_colina"] = img
+    return {n: i.resize((i.width * PROD_SCALE, i.height * PROD_SCALE), Image.NEAREST) for n, i in s.items()}
+
+
 def main():
     OUT.mkdir(parents=True, exist_ok=True)
     sprites = {
@@ -401,6 +485,8 @@ def main():
         "fondo": Image.open(SRC / "fondo.jpeg").convert("RGB"),
         "duende": Image.open(SRC / "duende.jpeg").convert("RGB").resize((1200, 896), Image.LANCZOS),
         **cosmeticos(),
+        **portales(),
+        **produccion(),
     }
     sprites.update(wear_layers(sprites["camarada"], {n: i for n, i in sprites.items() if n.startswith("cos_")}))
     for name, img in sprites.items():
@@ -425,6 +511,11 @@ def main():
     assert len(wear) == 20 and all(i.size == (sprites["camarada"].width + pad, sprites["camarada"].height + pad) for i in wear)
     assert all(i.getbbox() for i in wear), "capa vacía"
     assert sprites["sierra"].size == (160, 160)
+    for name in ("portal_azul", "portal_morado"):
+        img, front = sprites[name], sprites[name + "_frente"]
+        assert img.size == front.size and img.height == PORTAL_H + 2 * MARGIN, name
+        assert front.getchannel("A").getbbox()[0] >= round(img.width * PORTAL_FRONT), f"{name}: frente tapa el centro"
+    assert all(sprites[n].getbbox() for n in sprites if n.startswith("prod_")), "sprite de producción vacío"
     assert sprites["fondo"].mode == "RGB" and sprites["fondo"].size == (1024, 572)
 
 

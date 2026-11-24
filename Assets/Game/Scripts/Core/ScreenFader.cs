@@ -14,6 +14,7 @@ namespace RunDashC
         public static ScreenFader Instance { get; private set; }
 
         Image image;
+        Color tint = Color.black;
 
         internal static ScreenFader Create(Transform parent)
         {
@@ -42,15 +43,19 @@ namespace RunDashC
         }
 
         /// <summary>Oscurece, ejecuta <paramref name="atBlack"/> (p. ej. cargar escena) y vuelve a aclarar.</summary>
-        public void FadeOutIn(Action atBlack) => StartCoroutine(Run(atBlack));
+        public void FadeOutIn(Action atBlack) => StartCoroutine(Run(atBlack, Color.black, 1f, true));
 
-        IEnumerator Run(Action atBlack)
+        /// <summary>Destello de color (portales): el juego sigue corriendo y <paramref name="atPeak"/> pasa en el pico.</summary>
+        public void Flash(Color color, Action atPeak) => StartCoroutine(Run(atPeak, color, 0.9f, false));
+
+        IEnumerator Run(Action atPeak, Color color, float peak, bool blockClicks)
         {
-            image.raycastTarget = true; // bloquea clics durante la transición
-            yield return Fade(0f, 1f, OutSeconds);
-            atBlack?.Invoke();
+            tint = color;
+            image.raycastTarget = blockClicks; // bloquea clics durante la transición de escena
+            yield return Fade(0f, peak, OutSeconds);
+            atPeak?.Invoke();
             yield return null; // deja que la escena nueva cargue
-            yield return Fade(1f, 0f, InSeconds);
+            yield return Fade(peak, 0f, InSeconds);
             image.raycastTarget = false;
         }
 
@@ -64,6 +69,6 @@ namespace RunDashC
             SetAlpha(to);
         }
 
-        void SetAlpha(float a) => image.color = new Color(0f, 0f, 0f, a);
+        void SetAlpha(float a) => image.color = new Color(tint.r, tint.g, tint.b, a);
     }
 }

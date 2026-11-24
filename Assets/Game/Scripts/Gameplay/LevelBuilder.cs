@@ -40,6 +40,8 @@ namespace RunDashC
         {
             glitch = gameObject.AddComponent<CodeGlitch>();
             AsciiParticles.Warm();
+            WorldMode.Reset(); // antes de armar las pieles: arrancan en modo código
+            WorldMode.HasProduction = false; // el infinito no tiene portales
 
             if (GameSession.IsEndless)
             {
@@ -57,6 +59,7 @@ namespace RunDashC
             }
 
             Data = LevelData.Load(GameSession.Level);
+            WorldMode.HasProduction = Data.Contains(LevelData.PortalProduction);
             StartPosition = SpawnPoint(Data.StartCell);
             FinishX = Data.FinishCell.x;
             BuildColumns(0, Data.Width, transform);
@@ -158,6 +161,8 @@ namespace RunDashC
                 case LevelData.DivZeroMoving: Create<DivZeroHazard>("div0_moving", center, parent).moving = true; break;
                 case LevelData.Bit: Create<BitPickup>("bit", center, parent); break;
                 case LevelData.Checkpoint: Create<Checkpoint>("checkpoint", center, parent); break;
+                case LevelData.PortalFlip: Create<PortalGate>("portal_flip", center, parent).kind = PortalKind.Flip; break;
+                case LevelData.PortalProduction: Create<PortalGate>("portal_prod", center, parent).kind = PortalKind.Production; break;
             }
         }
 
@@ -181,8 +186,11 @@ namespace RunDashC
             box.size = new Vector2(w, 1f);
             box.offset = new Vector2(w / 2f, 0.5f);
 
+            var code = ProdSkin.Split(root, out var prod);
+            if (prod != null) BuildProdPlatform(x0, x1, y, prod);
+
             // Fondo opaco: tapa el parallax para que la plataforma se lea.
-            WorldKit.AddRect(root, new Vector2(w / 2f, 0.5f), new Vector2(w, 1f), AsciiTheme.WithAlpha(AsciiTheme.Bg, 0.92f), -1);
+            WorldKit.AddRect(code, new Vector2(w / 2f, 0.5f), new Vector2(w, 1f), AsciiTheme.WithAlpha(AsciiTheme.Bg, 0.92f), -1);
 
             // Tramos con cara superior expuesta (código verde) o tapados por otra '=' (relleno tenue).
             for (int s = x0; s < x1;)
@@ -191,22 +199,43 @@ namespace RunDashC
                 int e = s;
                 while (e < x1 && (Data.At(e, y + 1) != LevelData.Block) == top) e++;
                 int chars = (e - s) * WorldKit.CodeCharsPerUnit;
-                var tm = WorldKit.AddText(root, top ? Code(chars) : Repeat(Fill, chars), new Vector2(s - x0, 0.5f),
+                var tm = WorldKit.AddText(code, top ? Code(chars) : Repeat(Fill, chars), new Vector2(s - x0, 0.5f),
                     top ? AsciiTheme.Green : AsciiTheme.GreenDim, WorldKit.CodeEm, TextAnchor.MiddleLeft, 0);
                 glitch.Add(tm);
-                if (top) WorldKit.AddRect(root, new Vector2((s + e) / 2f - x0, 0.96f), new Vector2(e - s, 0.08f), AsciiTheme.Green, 1);
+                if (top) WorldKit.AddRect(code, new Vector2((s + e) / 2f - x0, 0.96f), new Vector2(e - s, 0.08f), AsciiTheme.Green, 1);
                 s = e;
             }
 
             // Bordes laterales solo donde el suelo termina (en la costura entre tramos sigue).
-            if (Data.At(x0 - 1, y) != LevelData.Block) WorldKit.AddRect(root, new Vector2(0.04f, 0.5f), new Vector2(0.08f, 1f), AsciiTheme.Green, 1);
-            if (Data.At(x1, y) != LevelData.Block) WorldKit.AddRect(root, new Vector2(w - 0.04f, 0.5f), new Vector2(0.08f, 1f), AsciiTheme.Green, 1);
+            if (Data.At(x0 - 1, y) != LevelData.Block) WorldKit.AddRect(code, new Vector2(0.04f, 0.5f), new Vector2(0.08f, 1f), AsciiTheme.Green, 1);
+            if (Data.At(x1, y) != LevelData.Block) WorldKit.AddRect(code, new Vector2(w - 0.04f, 0.5f), new Vector2(0.08f, 1f), AsciiTheme.Green, 1);
 
             // Remates cian >> / << en los bordes con cara superior, como en el mockup.
             if (Data.At(x1 - 1, y + 1) != LevelData.Block && Data.At(x1, y) == LevelData.Empty)
-                WorldKit.AddText(root, ">>", new Vector2(w + 0.1f, 0.5f), AsciiTheme.Cyan, WorldKit.CodeEm, TextAnchor.MiddleLeft, 1);
+                WorldKit.AddText(code, ">>", new Vector2(w + 0.1f, 0.5f), AsciiTheme.Cyan, WorldKit.CodeEm, TextAnchor.MiddleLeft, 1);
             if (x0 > 0 && Data.At(x0, y + 1) != LevelData.Block && Data.At(x0 - 1, y) == LevelData.Empty)
-                WorldKit.AddText(root, "<<", new Vector2(-0.1f, 0.5f), AsciiTheme.Cyan, WorldKit.CodeEm, TextAnchor.MiddleRight, 1);
+                WorldKit.AddText(code, "<<", new Vector2(-0.1f, 0.5f), AsciiTheme.Cyan, WorldKit.CodeEm, TextAnchor.MiddleRight, 1);
+        }
+
+        /// <summary>Piel "producción" de la plataforma: tierra con pasto en las caras expuestas, sin código.</summary>
+        void BuildProdPlatform(int x0, int x1, int y, Transform prod)
+        {
+            int w = x1 - x0;
+            WorldKit.AddRect(prod, new Vector2(w / 2f, 0.5f), new Vector2(w, 1f), AsciiTheme.ProdDirt, -1);
+            if (Data.At(x0, y - 1) != LevelData.Block) // la cara de abajo solo si se ve
+                WorldKit.AddRect(prod, new Vector2(w / 2f, 0.06f), new Vector2(w, 0.12f), AsciiTheme.ProdDirtDark, 0);
+            for (int s = x0; s < x1;)
+            {
+                if (Data.At(s, y + 1) == LevelData.Block) { s++; continue; }
+                int e = s;
+                while (e < x1 && Data.At(e, y + 1) != LevelData.Block) e++;
+                float cx = (s + e) / 2f - x0;
+                WorldKit.AddRect(prod, new Vector2(cx, 0.86f), new Vector2(e - s, 0.28f), AsciiTheme.ProdGrass, 1);
+                WorldKit.AddRect(prod, new Vector2(cx, 0.97f), new Vector2(e - s, 0.06f), AsciiTheme.ProdGrassLight, 1);
+                s = e;
+            }
+            for (int x = x0 + 1; x < x1; x += 3) // piedritas fijas, sin azar
+                WorldKit.AddRect(prod, new Vector2(x - x0 + 0.3f * ((x + y) % 3), 0.35f), new Vector2(0.16f, 0.12f), AsciiTheme.ProdDirtDark, 0);
         }
 
         /// <summary>Fragmentos de AsciiTheme.CodeSnippets al azar, recortados a <paramref name="n"/> caracteres.</summary>

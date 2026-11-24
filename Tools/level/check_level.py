@@ -10,11 +10,11 @@ import sys
 from pathlib import Path
 
 ROWS = 12
-LEGEND = set("=^BSsZz*CFP ")
+LEGEND = set("=^BSsZz*CFPVD ")
 MAX_GAP, MAX_GAP_DJ = 4, 7    # RunTuning.MaxGapSingleJump / MaxGapDoubleJump
 MAX_STEP, MAX_STEP_DJ = 2, 3  # RunTuning.MaxStepUp; +3 solo con doble salto ya enseñado
 HAZARDS = set("^BSsZz")
-GROUNDED = set("CPB^F")
+GROUNDED = set("CPB^FVD")
 CP_CLEAR = 10       # columnas sin peligro después de un checkpoint
 FINISH_RUNOUT = 15  # suelo plano después de la meta
 HUD_ROW = 11        # la barra superior del HUD tapa esta fila
@@ -149,6 +149,11 @@ def check(text, dj_taught=False):
         if bad:
             errors.append(f"checkpoint en col {x}: peligro {bad[0] - x} columnas después (mín. {CP_CLEAR}).")
 
+    for x, y in cells["V"] + cells["D"]:  # la transición del portal necesita respiro
+        bad = [i for i in range(x + 1, min(W, x + CP_CLEAR + 1)) if danger(i)]
+        if bad:
+            errors.append(f"portal en col {x}: peligro {bad[0] - x} columnas después (mín. {CP_CLEAR}).")
+
     for x, y in cells["F"][:1]:
         _, r = flat_run(x)
         clear = not any(danger(i) for i in range(x, min(W, x + FINISH_RUNOUT + 1)))
@@ -175,7 +180,7 @@ def check(text, dj_taught=False):
     count = lambda cs: sum(len(cells[c]) for c in cs)
     rep.append(f"bits {count('*')} · checkpoints {[x for x, _ in sorted(cells['C'])]} · "
                f"púas {count('^')} · bugs {count('B')} · sierras {count('S')}+{count('s')} móviles · "
-               f"/0 {count('Z')}+{count('z')} móviles · hints {len(hints)}")
+               f"/0 {count('Z')}+{count('z')} móviles · portales {count('V')} V + {count('D')} D · hints {len(hints)}")
     return errors, "\n".join(rep)
 
 

@@ -16,7 +16,8 @@ namespace RunDashC
     /// hint &lt;col&gt; &lt;y&gt; &lt;texto&gt;    (texto flotante en el mundo; y = 0 es la fila de abajo)
     /// </code>
     /// Leyenda: '=' bloque/suelo · '^' púas · 'B' bug · 'S' sierra · 's' sierra móvil ·
-    /// 'Z' /0 · 'z' /0 móvil · '*' bit · 'C' checkpoint · 'F' meta · 'P' inicio · ' ' vacío.
+    /// 'Z' /0 · 'z' /0 móvil · '*' bit · 'C' checkpoint · 'F' meta · 'P' inicio · ' ' vacío ·
+    /// 'V' portal azul (mundo al revés) · 'D' portal morado (dimensión producción).
     /// </summary>
     public sealed class LevelData
     {
@@ -34,8 +35,10 @@ namespace RunDashC
         public const char Finish = 'F';
         public const char Start = 'P';
         public const char Empty = ' ';
+        public const char PortalFlip = 'V';
+        public const char PortalProduction = 'D';
 
-        const string Legend = "=^BSsZz*CFP ";
+        const string Legend = "=^BSsZz*CFPVD ";
 
         public struct Hint
         {
@@ -55,6 +58,13 @@ namespace RunDashC
         /// <summary>Carácter en (x, y); fuera del mapa devuelve ' '.</summary>
         public char At(int x, int y) =>
             x < 0 || y < 0 || x >= Width || y >= Rows ? Empty : cells[x, y];
+
+        public bool Contains(char c)
+        {
+            foreach (var cell in cells)
+                if (cell == c) return true;
+            return false;
+        }
 
         /// <summary>Modo infinito: pega <paramref name="chunk"/> a la derecha y devuelve su offset x en el mundo.</summary>
         public int Append(LevelData chunk)

@@ -33,7 +33,7 @@ namespace RunDashC
 
         int lives, bits, levelAtStart, lostIndex = -1, lastPct = -1, shownTier;
         float blinkUntil, lifeLostUntil, punchStart, flashStart = -10f, countdownStart = -10f, nextScramble;
-        bool punching;
+        bool punching, wasFlipped, wasProduction;
         Color countdownColor;
         Coroutine toastRoutine;
 
@@ -46,6 +46,9 @@ namespace RunDashC
             RunEvents.Checkpoint += OnCheckpoint;
             RunEvents.LevelCompleted += OnLevelCompleted;
             RunEvents.PlayerDied += OnPlayerDied;
+            WorldMode.Changed += OnWorldModeChanged;
+            wasFlipped = WorldMode.Flipped;
+            wasProduction = WorldMode.Production;
 
             // Estado inicial sin animaciones de "vida perdida" ni punch.
             levelAtStart = GameSession.Level;
@@ -71,6 +74,7 @@ namespace RunDashC
             RunEvents.Checkpoint -= OnCheckpoint;
             RunEvents.LevelCompleted -= OnLevelCompleted;
             RunEvents.PlayerDied -= OnPlayerDied;
+            WorldMode.Changed -= OnWorldModeChanged;
         }
 
         void Refresh()
@@ -216,10 +220,22 @@ namespace RunDashC
             rootGlitch.Kick(0.3f);
         }
 
-        void OnCheckpoint()
+        void OnCheckpoint() => ShowToast("> progreso guardado");
+
+        void OnWorldModeChanged()
+        {
+            if (WorldMode.Production != wasProduction)
+                ShowToast(WorldMode.Production ? $"> git push --prod // {WorldMode.ProductionSeconds:0} s fuera del codigo" : "> rollback // de vuelta al codigo");
+            else if (WorldMode.Flipped != wasFlipped)
+                ShowToast(WorldMode.Flipped ? "> mundo.invertir();" : "> mundo.restaurar();");
+            wasFlipped = WorldMode.Flipped;
+            wasProduction = WorldMode.Production;
+        }
+
+        void ShowToast(string msg)
         {
             if (toastRoutine != null) StopCoroutine(toastRoutine);
-            toastRoutine = StartCoroutine(Toast("> progreso guardado"));
+            toastRoutine = StartCoroutine(Toast(msg));
         }
 
         IEnumerator Toast(string msg)
